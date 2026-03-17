@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisogynAI — Dashboard de Monitoreo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container lines">
+            <h1 class="logo">MisogynAI</h1>
+            <p class="tagline">SISTEMA RAG DE MONITOREO DE CONTENIDO MISÓGINO EN BLUESKY</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="search-section">
+            <form id="query-form" class="query-box">
+                <label for="question">CONSULTAR AL SISTEMA</label>
+                <div class="input-group">
+                    <input type="text" id="question" name="question" placeholder="Ej: ¿Qué patrones de discurso se han detectado hoy?" required>
+                    <button type="submit">ANALIZAR</button>
+                </div>
+                <div class="slider-group">
+                    <label for="k-slider">Contexto (k): <span id="k-value">5</span> posts</label>
+                    <input type="range" id="k-slider" name="top_k" min="1" max="20" value="5" step="1">
+                </div>
+            </form>
+        </section>
+
+        <div id="results-area" class="results-container hidden">
+            <div class="result-card">
+                <h3 class="result-title">Análisis</h3>
+                <div id="answer-text" class="result-body"></div>
+                
+                <h3 class="result-title">Fuentes Recuperadas</h3>
+                <div class="table-container">
+                    <table class="sources-table">
+                        <thead>
+                            <tr>
+                                <th>Autor</th>
+                                <th>Contenido del Post</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sources-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <hr class="elegant-line">
+
+        <section class="stats-section">
+            <div class="stats-header">
+                <h2>ESTADÍSTICAS DEL SISTEMA</h2>
+                <button id="refresh-stats" class="text-button">ACTUALIZAR</button>
+            </div>
+            <div id="stats-grid" class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">Posts Monitoreados</span>
+                    <span id="stat-count" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Estado del LLM</span>
+                    <span id="stat-llm" class="stat-value gray">...</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Último Ciclo</span>
+                    <span id="stat-last-sync" class="stat-value gray">Nunca</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; 2026 MisogynAI Project. Monitorizado por Inteligencia Artificial.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

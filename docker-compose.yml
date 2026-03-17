@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  # ── Custom services ──────────────────────────────────────────────
+  scraper:
+    build: ./scraper
+    env_file: .env
+    depends_on:
+      - minio
+      - chromadb
+    restart: "no"
+    network_mode: "host"
+
+  flask_app:
+    build: ./flask_app
+    env_file: .env
+    depends_on:
+      - llm
+      - minio
+      - chromadb
+    restart: "no"
+    network_mode: "host"
+
+  # ── Third-party services ─────────────────────────────────────────
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    volumes:
+      - ./models:/models
+    env_file: .env
+    command: >
+      -m /models/${LLM_MODEL_FILENAME}
+      -c 4096
+      --host 0.0.0.0
+      --port 8080
+    restart: "no"
+    network_mode: "host"
+
+  minio:
+    image: minio/minio:latest
+    env_file: .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address "127.0.0.1:9001" --address "127.0.0.1:9000"
+    restart: "no"
+    network_mode: "host"
+
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+    network_mode: "host"
+
+volumes:
+  minio_data:
+  chroma_data:
+

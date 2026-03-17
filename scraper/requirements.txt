@@ -1,0 +1,10 @@
+atproto
+minio
+chromadb
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+sentence-transformers
+apscheduler
+requests
+python-dotenv
+structlog
