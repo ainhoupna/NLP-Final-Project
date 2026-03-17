@@ -110,7 +110,7 @@ git clone https://github.com/youruser/misogynai.git && cd misogynai
  
 # 3. Copy env
 cp .env.example .env
-
+ 
 # 4. Start everything
 docker-compose up --build
 ```
