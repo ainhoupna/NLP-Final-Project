@@ -107,7 +107,7 @@ git clone https://github.com/youruser/misogynai.git && cd misogynai
 # 2. Download model weights
 # Recommended: Llama-3.2-3B-Instruct-Q4_K_M.gguf (see models/README.md)
 # Download from: https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF
-
+ 
 # 3. Copy env
 cp .env.example .env
 
