@@ -13,6 +13,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const kSlider = document.getElementById('k-slider');
     const kValueDisplay = document.getElementById('k-value');
 
+    // --- Tabs Handling ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active classes
+            tabButtons.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and target
+            btn.classList.add('active');
+            const targetId = btn.getAttribute('data-tab');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
+
     // --- Slider sync ---
     kSlider.addEventListener('input', () => {
         kValueDisplay.innerText = kSlider.value;
@@ -65,21 +82,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    let historyChartInstance = null;
+
+    const renderChart = (data) => {
+        const ctx = document.getElementById('historyChart').getContext('2d');
+        if (historyChartInstance) {
+            historyChartInstance.destroy();
+        }
+        historyChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+    };
+
     // --- Stats Handling ---
     const fetchStats = async () => {
         try {
-            const response = await fetch('/stats');
-            if (response.status === 501) {
+            const [statsRes, histRes] = await Promise.all([
+                fetch('/stats'),
+                fetch('/stats/history')
+            ]);
+            
+            if (statsRes.status === 501) {
                 statCount.innerText = "N/A";
                 statLlm.innerText = "No implementado";
             } else {
-                const data = await response.json();
+                const data = await statsRes.json();
                 statCount.innerText = data.indexed_posts || 0;
                 statLlm.innerText = data.llm_status || "Desconocido";
                 statLastSync.innerText = data.last_scrape || "Nunca";
                 
                 statLlm.classList.remove('gray');
                 statLastSync.classList.remove('gray');
+            }
+            
+            if (histRes.ok) {
+                const histData = await histRes.json();
+                renderChart(histData);
             }
         } catch (error) {
             console.error('Error fetching stats:', error);

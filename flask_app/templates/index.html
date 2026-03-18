@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -18,8 +19,14 @@
     </header>
 
     <main class="container">
-        <section class="search-section">
-            <form id="query-form" class="query-box">
+        <div class="tabs-container">
+            <button class="tab-button active" data-tab="tab-rag">BÚSQUEDA RAG</button>
+            <button class="tab-button" data-tab="tab-monitor">MONITORIZACIÓN</button>
+        </div>
+
+        <div id="tab-rag" class="tab-content active">
+            <section class="search-section">
+                <form id="query-form" class="query-box">
                 <label for="question">CONSULTAR AL SISTEMA</label>
                 <div class="input-group">
                     <input type="text" id="question" name="question" placeholder="Ej: ¿Qué patrones de discurso se han detectado hoy?" required>
@@ -51,14 +58,19 @@
                 </div>
             </div>
         </div>
+        </div> <!-- End of tab-rag -->
 
-        <hr class="elegant-line">
-
-        <section class="stats-section">
-            <div class="stats-header">
+        <div id="tab-monitor" class="tab-content">
+            <section class="stats-section">
+                <div class="stats-header">
                 <h2>ESTADÍSTICAS DEL SISTEMA</h2>
                 <button id="refresh-stats" class="text-button">ACTUALIZAR</button>
             </div>
+            
+            <div class="chart-container">
+                <canvas id="historyChart"></canvas>
+            </div>
+
             <div id="stats-grid" class="stats-grid">
                 <div class="stat-item">
                     <span class="stat-label">Posts Monitoreados</span>
@@ -74,6 +86,7 @@
                 </div>
             </div>
         </section>
+        </div> <!-- End of tab-monitor -->
     </main>
 
     <footer class="site-footer">

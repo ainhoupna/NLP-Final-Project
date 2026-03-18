@@ -60,6 +60,9 @@ def _initialize_components():
         components["minio"] = MinIOClient(MINIO_URL, MINIO_AK, MINIO_SK, MINIO_BUCKET)
         components["minio.url"] = MINIO_URL # For stats
         
+        MINIO_HISTORY_BUCKET = os.getenv("MINIO_HISTORY_BUCKET", "history")
+        components["minio_history"] = MinIOClient(MINIO_URL, MINIO_AK, MINIO_SK, MINIO_HISTORY_BUCKET)
+        
         components["chroma_client"] = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
         components["chroma_collection"] = components["chroma_client"].get_or_create_collection(name=CHROMA_COLLECTION)
         
@@ -122,6 +125,26 @@ def stats():
     except Exception as e:
         logger.error("stats_handler_error", error=str(e))
         return jsonify({"status": "degraded", "error": str(e)}), 500
+
+@app.route("/stats/history", methods=["GET"])
+def history_stats():
+    """Devuelve la serie temporal de misoginia (Mock hasta modelo de ML)."""
+    import datetime
+    import random
+    
+    # Generamos datos mock para los últimos 7 días
+    today = datetime.date.today()
+    labels = [(today - datetime.timedelta(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
+    # Simula un porcentaje de misoginia entre 10% y 40%
+    data = [random.uniform(10.0, 40.0) for _ in range(7)]
+    
+    return jsonify({
+        "labels": labels,
+        "datasets": [{
+            "label": "% Misoginia (Simulado)",
+            "data": [round(val, 2) for val in data]
+        }]
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

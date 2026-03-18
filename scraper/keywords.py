@@ -22,6 +22,14 @@ MISOGYNY_SEED_QUERIES: list[str] = [
     "vuelve a la cocina",
     "histérica",
     "golfa",
+    "mujer tenías que ser",
+    "se lo buscó",
+    "todas putas",
+    "hembrismo",
+    "privilegio femenino",
+    "debería estar en la cocina",
+    "no es para mujeres",
+    
     # --- English ---
     "misogyny",
     "women belong in the kitchen",
@@ -32,4 +40,10 @@ MISOGYNY_SEED_QUERIES: list[str] = [
     "make me a sandwich",
     "women are inferior",
     "bossy woman",
+    "typical woman",
+    "women logic",
+    "incel",
+    "she asked for it",
+    "not all men",
+    "feminazi",
 ]

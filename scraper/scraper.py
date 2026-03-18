@@ -40,6 +40,7 @@ MINIO_URL = os.getenv("MINIO_URL", "127.0.0.1:9000")
 MINIO_AK = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SK = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "posts")
+MINIO_HISTORY_BUCKET = os.getenv("MINIO_HISTORY_BUCKET", "history")
 
 CHROMA_HOST = os.getenv("CHROMADB_HOST", "127.0.0.1")
 CHROMA_PORT = int(os.getenv("CHROMADB_PORT", 8000))
@@ -52,6 +53,7 @@ TTL_HOURS = int(os.getenv("POST_TTL_HOURS", 24))
 # --- Inicialización de Clientes ---
 bsky = BlueskyClient(BSKY_HANDLE, BSKY_PASSWORD)
 minio = MinIOClient(MINIO_URL, MINIO_AK, MINIO_SK, MINIO_BUCKET)
+minio_history = MinIOClient(MINIO_URL, MINIO_AK, MINIO_SK, MINIO_HISTORY_BUCKET)
 embedder = PostEmbedder(EMBEDDING_MODEL)
 chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
 
@@ -62,6 +64,7 @@ def run_scrape_cycle() -> None:
     try:
         # 0. Asegurar infraestructura
         minio.ensure_bucket()
+        minio_history.ensure_bucket()
         collection = chroma_client.get_or_create_collection(name=CHROMA_COLLECTION)
         
         # 1. Login Bluesky
@@ -78,6 +81,10 @@ def run_scrape_cycle() -> None:
                 try:
                     # 3. Almacenar en MinIO
                     minio_key = minio.upload_post(post)
+                    try:
+                        minio_history.upload_post(post)
+                    except Exception as e_hist:
+                        logger.warning("history_upload_failed", uri=post.get("uri"), error=str(e_hist))
                     
                     # 4. Enriquecer post con metadata de sistema
                     post["minio_key"] = minio_key
