@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MisogynAI — Dashboard de Monitoreo</title>
+    <title>MisogynAI — Monitoring Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -14,26 +14,26 @@
     <header class="site-header">
         <div class="container lines">
             <h1 class="logo">MisogynAI</h1>
-            <p class="tagline">SISTEMA RAG DE MONITOREO DE CONTENIDO MISÓGINO EN BLUESKY</p>
+            <p class="tagline">RAG SYSTEM FOR MISOGYNISTIC CONTENT MONITORING ON BLUESKY</p>
         </div>
     </header>
 
     <main class="container">
         <div class="tabs-container">
-            <button class="tab-button active" data-tab="tab-rag">BÚSQUEDA RAG</button>
-            <button class="tab-button" data-tab="tab-monitor">MONITORIZACIÓN</button>
+            <button class="tab-button active" data-tab="tab-rag">RAG SEARCH</button>
+            <button class="tab-button" data-tab="tab-monitor">MONITORING</button>
         </div>
 
         <div id="tab-rag" class="tab-content active">
             <section class="search-section">
                 <form id="query-form" class="query-box">
-                <label for="question">CONSULTAR AL SISTEMA</label>
+                <label for="question">QUERY THE SYSTEM</label>
                 <div class="input-group">
-                    <input type="text" id="question" name="question" placeholder="Ej: ¿Qué patrones de discurso se han detectado hoy?" required>
-                    <button type="submit">ANALIZAR</button>
+                    <input type="text" id="question" name="question" placeholder="e.g.: What speech patterns have been detected today?" required>
+                    <button type="submit">ANALYZE</button>
                 </div>
                 <div class="slider-group">
-                    <label for="k-slider">Contexto (k): <span id="k-value">5</span> posts</label>
+                    <label for="k-slider">Context (k): <span id="k-value">5</span> posts</label>
                     <input type="range" id="k-slider" name="top_k" min="1" max="20" value="5" step="1">
                 </div>
             </form>
@@ -41,16 +41,16 @@
 
         <div id="results-area" class="results-container hidden">
             <div class="result-card">
-                <h3 class="result-title">Análisis</h3>
+                <h3 class="result-title">Analysis</h3>
                 <div id="answer-text" class="result-body"></div>
                 
-                <h3 class="result-title">Fuentes Recuperadas</h3>
+                <h3 class="result-title">Retrieved Sources</h3>
                 <div class="table-container">
                     <table class="sources-table">
                         <thead>
                             <tr>
-                                <th>Autor</th>
-                                <th>Contenido del Post</th>
+                                <th>Author</th>
+                                <th>Post Content</th>
                             </tr>
                         </thead>
                         <tbody id="sources-body"></tbody>
@@ -63,8 +63,8 @@
         <div id="tab-monitor" class="tab-content">
             <section class="stats-section">
                 <div class="stats-header">
-                <h2>ESTADÍSTICAS DEL SISTEMA</h2>
-                <button id="refresh-stats" class="text-button">ACTUALIZAR</button>
+                <h2>SYSTEM STATISTICS</h2>
+                <button id="refresh-stats" class="text-button">REFRESH</button>
             </div>
             
             <div class="chart-container">
@@ -73,16 +73,16 @@
 
             <div id="stats-grid" class="stats-grid">
                 <div class="stat-item">
-                    <span class="stat-label">Posts Monitoreados</span>
+                    <span class="stat-label">Monitored Posts</span>
                     <span id="stat-count" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Estado del LLM</span>
+                    <span class="stat-label">LLM Status</span>
                     <span id="stat-llm" class="stat-value gray">...</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Último Ciclo</span>
-                    <span id="stat-last-sync" class="stat-value gray">Nunca</span>
+                    <span class="stat-label">Last Cycle</span>
+                    <span id="stat-last-sync" class="stat-value gray">Never</span>
                 </div>
             </div>
         </section>
@@ -91,7 +91,7 @@
 
     <footer class="site-footer">
         <div class="container">
-            <p>&copy; 2026 MisogynAI Project. Monitorizado por Inteligencia Artificial.</p>
+            <p>&copy; 2026 MisogynAI Project. Monitored by Artificial Intelligence.</p>
         </div>
     </footer>
 

@@ -160,7 +160,7 @@ def history_stats():
         return jsonify({
             "labels": labels,
             "datasets": [{
-                "label": "% Misoginia Real (BERT)",
+                "label": "% Real Misogyny (BERT)",
                 "data": data_points
             }]
         })

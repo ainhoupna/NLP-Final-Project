@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!question) return;
 
         // UI Feedback
-        answerText.innerHTML = '<em>Analizando...</em>';
+        answerText.innerHTML = '<em>Analyzing...</em>';
         document.getElementById('sources-body').innerHTML = '';
         resultsArea.classList.remove('hidden');
         questionInput.disabled = true;
@@ -57,10 +57,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.status === 501) {
-                answerText.innerText = "Error 501: El servicio RAG no está implementado todavía.";
+                answerText.innerText = "Error 501: RAG service is not implemented yet.";
             } else {
                 const data = await response.json();
-                answerText.innerText = data.answer || "No se ha podido procesar la respuesta.";
+                answerText.innerText = data.answer || "Could not process the response.";
                 
                 const sourcesBody = document.getElementById('sources-body');
                 if (data.sources && data.sources.length > 0) {
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Error fetching query:', error);
-            answerText.innerText = "Error: No se pudo conectar con el servidor.";
+            answerText.innerText = "Error: Could not connect to the server.";
         } finally {
             questionInput.disabled = false;
         }
@@ -115,12 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (statsRes.status === 501) {
                 statCount.innerText = "N/A";
-                statLlm.innerText = "No implementado";
+                statLlm.innerText = "Not implemented";
             } else {
                 const data = await statsRes.json();
                 statCount.innerText = data.indexed_posts || 0;
-                statLlm.innerText = data.llm_status || "Desconocido";
-                statLastSync.innerText = data.last_scrape || "Nunca";
+                statLlm.innerText = data.llm_status || "Unknown";
+                statLastSync.innerText = data.last_scrape || "Never";
                 
                 statLlm.classList.remove('gray');
                 statLastSync.classList.remove('gray');
