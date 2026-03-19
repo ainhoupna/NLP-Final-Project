@@ -119,50 +119,57 @@ def stats():
 
 @app.route("/stats/history", methods=["GET"])
 def history_stats():
-    """Devuelve la serie temporal calculada con el modelo de ML (30 días)."""
+    """Returns time series data (percentage and volume) for the last 30 days."""
     if not components["mongo"]:
         return jsonify({"error": "MongoDB not available"}), 503
     
     try:
-        # Analizamos los últimos 30 días
         labels = []
-        data_points = []
+        percentage_data = []
+        misogynous_counts = []
+        clean_counts = []
         
         for i in range(29, -1, -1):
             day_dt = datetime.now() - timedelta(days=i)
             day_str = day_dt.strftime("%Y-%m-%d")
             labels.append(day_str)
             
-            # Buscar posts de ese día aproximado por scraped_at
             day_start = day_str + "T00:00:00Z"
             day_end = day_str + "T23:59:59Z"
             
-            # Agregación para calcular la media del score pre-calculado
-            # Usamos created_at (fecha real del post en Bluesky) para mayor precisión histórica
+            # Aggregate: average score, count of misogynous (>0.5), count of clean (<=0.5)
             pipeline = [
                 {"$match": {
                     "$or": [
                         {"created_at": {"$gte": day_start, "$lte": day_end}},
-                        {"scraped_at": {"$gte": day_start, "$lte": day_end}} # Fallback
+                        {"scraped_at": {"$gte": day_start, "$lte": day_end}}
                     ]
                 }},
-                {"$group": {"_id": None, "avg_score": {"$avg": "$misogyny_score"}}}
+                {"$group": {
+                    "_id": None,
+                    "avg_score": {"$avg": "$misogyny_score"},
+                    "misogynous_count": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
+                    "clean_count": {"$sum": {"$cond": [{"$lte": ["$misogyny_score", 0.5]}, 1, 0]}}
+                }}
             ]
             agg_result = list(components["mongo"].collection.aggregate(pipeline))
             
-            if agg_result and agg_result[0]["avg_score"] is not None:
-                # El front espera un porcentaje o score relativo
-                avg_val = float(agg_result[0]["avg_score"]) * 100
-                data_points.append(round(avg_val, 2))
+            if agg_result and agg_result[0]:
+                res = agg_result[0]
+                avg_val = (res.get("avg_score") or 0.0) * 100
+                percentage_data.append(round(avg_val, 2))
+                misogynous_counts.append(res.get("misogynous_count") or 0)
+                clean_counts.append(res.get("clean_count") or 0)
             else:
-                data_points.append(0.0)
+                percentage_data.append(0.0)
+                misogynous_counts.append(0)
+                clean_counts.append(0)
                 
         return jsonify({
             "labels": labels,
-            "datasets": [{
-                "label": "% Real Misogyny (BERT)",
-                "data": data_points
-            }]
+            "percentage": percentage_data,
+            "misogynous": misogynous_counts,
+            "clean": clean_counts
         })
     except Exception as e:
         logger.error("history_stats_error", error=str(e))

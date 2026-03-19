@@ -83,25 +83,74 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let historyChartInstance = null;
+    let currentHistoryData = null;
+    let currentView = 'percentage'; // 'percentage' or 'volume'
 
     const renderChart = (data) => {
         const ctx = document.getElementById('historyChart').getContext('2d');
         if (historyChartInstance) {
             historyChartInstance.destroy();
         }
-        historyChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: data,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top' }
-                },
-                scales: {
-                    y: { beginAtZero: true, max: 100 }
+
+        let chartData = {};
+        let options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    title: { display: true, text: currentView === 'percentage' ? 'Percentage (%)' : 'Number of Posts' }
                 }
             }
+        };
+
+        if (currentView === 'percentage') {
+            chartData = {
+                labels: data.labels,
+                datasets: [{
+                    label: '% Real Misogyny (BERT)',
+                    data: data.percentage,
+                    borderColor: '#1a1a1a',
+                    backgroundColor: 'rgba(26, 26, 26, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            };
+            options.scales.y.max = 100;
+        } else {
+            chartData = {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Misogynistic Posts',
+                        data: data.misogynous,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.6)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Clean Posts',
+                        data: data.clean,
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.4)',
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            };
+            options.scales.x = { stacked: true };
+            options.scales.y.stacked = true;
+        }
+
+        historyChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: options
         });
     };
 
@@ -127,13 +176,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (histRes.ok) {
-                const histData = await histRes.json();
-                renderChart(histData);
+                currentHistoryData = await histRes.json();
+                renderChart(currentHistoryData);
             }
         } catch (error) {
             console.error('Error fetching stats:', error);
         }
     };
+
+    const viewPercentageBtn = document.getElementById('view-percentage');
+    const viewVolumeBtn = document.getElementById('view-volume');
+
+    viewPercentageBtn.addEventListener('click', () => {
+        currentView = 'percentage';
+        viewPercentageBtn.classList.add('active');
+        viewVolumeBtn.classList.remove('active');
+        if (currentHistoryData) renderChart(currentHistoryData);
+    });
+
+    viewVolumeBtn.addEventListener('click', () => {
+        currentView = 'volume';
+        viewVolumeBtn.classList.add('active');
+        viewPercentageBtn.classList.remove('active');
+        if (currentHistoryData) renderChart(currentHistoryData);
+    });
 
     refreshStatsBtn.addEventListener('click', fetchStats);
 

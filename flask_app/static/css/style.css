@@ -206,6 +206,35 @@ body {
     font-style: italic;
 }
 
+.chart-controls {
+    display: flex;
+    gap: 1rem;
+    margin-right: auto;
+    margin-left: 2rem;
+}
+
+.control-button {
+    background: none;
+    border: 1px solid var(--border-color);
+    font-family: var(--font-sans);
+    font-size: 0.65rem;
+    padding: 0.4rem 0.8rem;
+    letter-spacing: 0.1rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.control-button.active {
+    background: var(--text-primary);
+    color: white;
+    border-color: var(--text-primary);
+}
+
+.control-button:hover:not(.active) {
+    border-color: var(--text-primary);
+}
+
 .text-button {
     background: none;
     border: none;
