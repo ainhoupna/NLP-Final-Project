@@ -5,6 +5,9 @@ chromadb
 torch
 sentence-transformers
 apscheduler
+pymongo
 requests
 python-dotenv
+numpy
 structlog
+

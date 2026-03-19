@@ -1,30 +1,26 @@
-"""Gestión del TTL (Time-To-Live) de posts.
+import structlog
+from datetime import datetime, timezone, timedelta
 
-Purga automáticamente los posts cuyo ``scraped_at_ts`` supere
-el umbral configurado, eliminándolos tanto de ChromaDB como de MinIO.
-"""
+logger = structlog.get_logger()
 
-from __future__ import annotations
-
-from flask_app.ingestion.minio_client import MinIOClient
-
-
-def purge_expired_posts(
-    chroma_collection,
-    minio_client: MinIOClient,
-    ttl_hours: int = 24,
-) -> int:
-    """Elimina posts con ``scraped_at_ts`` anterior al umbral de TTL.
-
-    Borra los posts expirados tanto de la colección de ChromaDB
-    como del bucket de MinIO.
-
-    Args:
-        chroma_collection: Colección de ChromaDB donde están indexados los posts.
-        minio_client: Cliente de MinIO para eliminar los objetos JSON.
-        ttl_hours: Umbral de antigüedad en horas (por defecto 24).
-
-    Returns:
-        Número de posts eliminados.
-    """
-    raise NotImplementedError
+def purge_expired_posts_mongo(mongo_client, ttl_hours: int) -> int:
+    """Elimina los posts cuya antigüedad sea superior al TTL."""
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=ttl_hours)
+        
+        # En MongoDB podemos borrar directamente los documentos antiguos
+        # Asumiendo que guardamos 'scraped_at' como ISO string, o mejor aún, como objeto Date.
+        # Si es ISO string:
+        cutoff_iso = cutoff.isoformat()
+        
+        result = mongo_client.collection.delete_many({
+            "scraped_at": {"$lt": cutoff_iso}
+        })
+        
+        count = result.deleted_count
+        if count > 0:
+            logger.info("posts_purged_mongo", count=count, cutoff=cutoff_iso)
+        return count
+    except Exception as e:
+        logger.error("purge_failed_mongo", error=str(e))
+        return 0

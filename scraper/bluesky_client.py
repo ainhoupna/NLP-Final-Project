@@ -35,6 +35,28 @@ class BlueskyClient:
             logger.error("atproto_search_failed", query=query, error=str(e))
             return []
 
+    def search_posts_paginated(self, query: str, limit: int = 50, since: str | None = None, until: str | None = None, cursor: str | None = None) -> tuple[list[dict], str | None]:
+        """Busca posts por query con paginación explícita temporal."""
+        try:
+            # We enforce Lucene query string formatting for dates to guarantee filter stability
+            full_query = query
+            if since:
+                full_query += f" since:{since}"
+            if until:
+                full_query += f" until:{until}"
+            
+            params = {"q": full_query, "limit": limit}
+            if cursor:
+                params["cursor"] = cursor
+                
+            response = self.client.app.bsky.feed.search_posts(params=params)
+            normalized_posts = [normalize_post(post) for post in response.posts]
+            logger.info("atproto_search_paginated_success", query=query, count=len(normalized_posts), has_cursor=bool(response.cursor))
+            return normalized_posts, response.cursor
+        except Exception as e:
+            logger.error("atproto_search_paginated_failed", query=query, error=str(e))
+            return [], None
+
 def normalize_post(post_view) -> dict:
     """Convierte un objeto de la API de atproto al formato canónico del proyecto."""
     # post_view es típicamente un objeto de la clase app.bsky.feed.defs.PostView

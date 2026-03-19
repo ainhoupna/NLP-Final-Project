@@ -1,4 +1,4 @@
-version: "3.9"
+---
 
 services:
   # ── Custom services ──────────────────────────────────────────────
@@ -6,19 +6,21 @@ services:
     build: ./scraper
     env_file: .env
     depends_on:
-      - minio
-      - chromadb
-    restart: "no"
+      - mongo
+    volumes:
+      - ./models:/models
+    restart: always
     network_mode: "host"
 
   flask_app:
     build: ./flask_app
     env_file: .env
     depends_on:
+      - mongo
       - llm
-      - minio
-      - chromadb
-    restart: "no"
+    volumes:
+      - ./models:/models
+    restart: always
     network_mode: "host"
 
   # ── Third-party services ─────────────────────────────────────────
@@ -38,27 +40,25 @@ services:
         limits:
           memory: 8g
 
-  minio:
-    image: minio/minio:latest
-    env_file: .env
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
     volumes:
-      - minio_data:/data
-    command: server /data --console-address "127.0.0.1:9001" --address "127.0.0.1:9000"
-    restart: "no"
+      - mongodb_data:/data/db
     network_mode: "host"
 
-  chromadb:
-    image: chromadb/chroma:latest
-    volumes:
-      - chroma_data:/chroma/chroma
-    restart: unless-stopped
+  mongo-express:
+    image: mongo-express:latest
+    depends_on:
+      - mongo
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://127.0.0.1:27017/?directConnection=true
     network_mode: "host"
+    restart: always
 
 volumes:
-  minio_data:
+  mongodb_data:
   chroma_data:
 
 

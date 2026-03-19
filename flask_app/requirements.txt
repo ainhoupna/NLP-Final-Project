@@ -4,6 +4,10 @@ chromadb
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 sentence-transformers
+pymongo
+transformers
 requests
 python-dotenv
+numpy
 structlog
+

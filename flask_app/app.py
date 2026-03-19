@@ -1,19 +1,14 @@
-"""API de MisogynAI.
-
-Proporciona endpoints para consultas RAG y estadísticas del sistema.
-"""
-
-from __future__ import annotations
 import os
 import structlog
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
-import chromadb
 from ingestion.embedder import PostEmbedder
-from ingestion.minio_client import MinIOClient
+from ingestion.mongodb_client import MongoDBClient
 from retrieval.retriever import PostRetriever
 from pipeline.rag import run_rag
+from models.predictor import MisogynyPredictor
 
 # Configurar logging
 structlog.configure(
@@ -32,42 +27,38 @@ app = Flask(__name__)
 # --- Componentes (Singletons) ---
 components = {
     "embedder": None,
-    "minio": None,
+    "mongo": None,
     "retriever": None,
-    "chroma_client": None,
-    "chroma_collection": None
+    "predictor": None
 }
 
 def _initialize_components():
     """Inicializa los clientes de servicios externos."""
     try:
-        MINIO_URL = os.getenv("MINIO_URL", "127.0.0.1:9000")
-        MINIO_AK = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-        MINIO_SK = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-        MINIO_BUCKET = os.getenv("MINIO_BUCKET", "posts")
-
-        CHROMA_HOST = os.getenv("CHROMADB_HOST", "127.0.0.1")
-        CHROMA_PORT = int(os.getenv("CHROMADB_PORT", 8000))
-        CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "bluesky_posts")
+        MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/?directConnection=true")
+        MONGO_DB = os.getenv("MONGO_DB", "misogynai")
+        MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "posts")
+        MONGO_VECTOR_INDEX = os.getenv("MONGO_VECTOR_INDEX", "vector_index")
 
         LLM_URL = os.getenv("LLM_URL", "http://127.0.0.1:8080")
         EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-mpnet-base-v2")
+        CLASSIFIER_WS = "/models/best_model.pth"
 
-        logger.info("initializing_components")
+        logger.info("initializing_components_mongo")
 
         components["embedder"] = PostEmbedder(EMBEDDING_MODEL)
+        components["mongo"] = MongoDBClient(MONGO_URI, MONGO_DB, MONGO_COLLECTION)
+        components["mongo"].ensure_indices(MONGO_VECTOR_INDEX)
         
-        components["minio"] = MinIOClient(MINIO_URL, MINIO_AK, MINIO_SK, MINIO_BUCKET)
-        components["minio.url"] = MINIO_URL # For stats
-        
-        MINIO_HISTORY_BUCKET = os.getenv("MINIO_HISTORY_BUCKET", "history")
-        components["minio_history"] = MinIOClient(MINIO_URL, MINIO_AK, MINIO_SK, MINIO_HISTORY_BUCKET)
-        
-        components["chroma_client"] = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
-        components["chroma_collection"] = components["chroma_client"].get_or_create_collection(name=CHROMA_COLLECTION)
-        
-        components["retriever"] = PostRetriever(components["chroma_collection"], components["embedder"])
+        components["retriever"] = PostRetriever(components["mongo"], components["embedder"], MONGO_VECTOR_INDEX)
         components["llm_url"] = LLM_URL
+
+        # Cargar el clasificador de misoginia (PyTorch)
+        if os.path.exists(CLASSIFIER_WS):
+            logger.info("loading_classifier", path=CLASSIFIER_WS)
+            components["predictor"] = MisogynyPredictor(CLASSIFIER_WS)
+        else:
+            logger.warning("classifier_not_found", path=CLASSIFIER_WS)
 
         logger.info("components_initialized_successfully")
 
@@ -110,16 +101,16 @@ def query():
 @app.route("/stats", methods=["GET"])
 def stats():
     """Devuelve estadísticas del sistema."""
-    if not components["chroma_collection"]:
+    if not components["mongo"]:
         return jsonify({"error": "System not initialized"}), 503
 
     try:
-        post_count = components["chroma_collection"].count()
+        mongo_stats = components["mongo"].get_stats()
         
         return jsonify({
             "status": "online",
-            "indexed_posts": post_count,
-            "minio_bucket": os.getenv("MINIO_BUCKET", "posts"),
+            "indexed_posts": mongo_stats["count"],
+            "storage": "mongodb",
             "llm_status": "ready" 
         })
     except Exception as e:
@@ -128,23 +119,54 @@ def stats():
 
 @app.route("/stats/history", methods=["GET"])
 def history_stats():
-    """Devuelve la serie temporal de misoginia (Mock hasta modelo de ML)."""
-    import datetime
-    import random
+    """Devuelve la serie temporal calculada con el modelo de ML (30 días)."""
+    if not components["mongo"]:
+        return jsonify({"error": "MongoDB not available"}), 503
     
-    # Generamos datos mock para los últimos 7 días
-    today = datetime.date.today()
-    labels = [(today - datetime.timedelta(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
-    # Simula un porcentaje de misoginia entre 10% y 40%
-    data = [random.uniform(10.0, 40.0) for _ in range(7)]
-    
-    return jsonify({
-        "labels": labels,
-        "datasets": [{
-            "label": "% Misoginia (Simulado)",
-            "data": [round(val, 2) for val in data]
-        }]
-    })
+    try:
+        # Analizamos los últimos 30 días
+        labels = []
+        data_points = []
+        
+        for i in range(29, -1, -1):
+            day_dt = datetime.now() - timedelta(days=i)
+            day_str = day_dt.strftime("%Y-%m-%d")
+            labels.append(day_str)
+            
+            # Buscar posts de ese día aproximado por scraped_at
+            day_start = day_str + "T00:00:00Z"
+            day_end = day_str + "T23:59:59Z"
+            
+            # Agregación para calcular la media del score pre-calculado
+            # Usamos created_at (fecha real del post en Bluesky) para mayor precisión histórica
+            pipeline = [
+                {"$match": {
+                    "$or": [
+                        {"created_at": {"$gte": day_start, "$lte": day_end}},
+                        {"scraped_at": {"$gte": day_start, "$lte": day_end}} # Fallback
+                    ]
+                }},
+                {"$group": {"_id": None, "avg_score": {"$avg": "$misogyny_score"}}}
+            ]
+            agg_result = list(components["mongo"].collection.aggregate(pipeline))
+            
+            if agg_result and agg_result[0]["avg_score"] is not None:
+                # El front espera un porcentaje o score relativo
+                avg_val = float(agg_result[0]["avg_score"]) * 100
+                data_points.append(round(avg_val, 2))
+            else:
+                data_points.append(0.0)
+                
+        return jsonify({
+            "labels": labels,
+            "datasets": [{
+                "label": "% Misoginia Real (BERT)",
+                "data": data_points
+            }]
+        })
+    except Exception as e:
+        logger.error("history_stats_error", error=str(e))
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
