@@ -35,27 +35,37 @@ class BlueskyClient:
             logger.error("atproto_search_failed", query=query, error=str(e))
             return []
 
-    def search_posts_paginated(self, query: str, limit: int = 50, since: str | None = None, until: str | None = None, cursor: str | None = None) -> tuple[list[dict], str | None]:
-        """Busca posts por query con paginación explícita temporal."""
-        try:
-            # We enforce Lucene query string formatting for dates to guarantee filter stability
-            full_query = query
-            if since:
-                full_query += f" since:{since}"
-            if until:
-                full_query += f" until:{until}"
-            
-            params = {"q": full_query, "limit": limit}
-            if cursor:
-                params["cursor"] = cursor
+    def search_posts_paginated(self, query: str, limit: int = 50, since: str | None = None, until: str | None = None, cursor: str | None = None, retries: int = 3) -> tuple[list[dict], str | None]:
+        """Busca posts por query con paginación explícita temporal y manejo de rate limit."""
+        import time
+        for attempt in range(retries):
+            try:
+                # We use native since/until parameters provided by the search API
+                params = {"q": query, "limit": limit}
+                if since:
+                    params["since"] = since
+                if until:
+                    params["until"] = until
+                if cursor:
+                    params["cursor"] = cursor
+                    
+                response = self.client.app.bsky.feed.search_posts(params=params)
+                normalized_posts = [normalize_post(post) for post in response.posts]
+                logger.info("atproto_search_paginated_success", query=query, count=len(normalized_posts), has_cursor=bool(response.cursor))
+                return normalized_posts, response.cursor
                 
-            response = self.client.app.bsky.feed.search_posts(params=params)
-            normalized_posts = [normalize_post(post) for post in response.posts]
-            logger.info("atproto_search_paginated_success", query=query, count=len(normalized_posts), has_cursor=bool(response.cursor))
-            return normalized_posts, response.cursor
-        except Exception as e:
-            logger.error("atproto_search_paginated_failed", query=query, error=str(e))
-            return [], None
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg or "RateLimitExceeded" in err_msg:
+                    wait_time = 300 # Wait 5 minutes by default for rate limit
+                    logger.warning("atproto_rate_limit_exceeded", query=query, wait_seconds=wait_time, attempt=attempt+1)
+                    time.sleep(wait_time)
+                    continue
+                
+                logger.error("atproto_search_paginated_failed", query=query, error=err_msg)
+                return [], None
+        
+        return [], None
 
 def normalize_post(post_view) -> dict:
     """Convierte un objeto de la API de atproto al formato canónico del proyecto."""

@@ -125,54 +125,121 @@ def history_stats():
     
     try:
         labels = []
-        percentage_data = []
+        avg_scores = []
         misogynous_counts = []
         clean_counts = []
         
-        for i in range(29, -1, -1):
+        # Calculate cutoff (180 days ago)
+        cutoff_dt = datetime.now() - timedelta(days=179)
+        cutoff_str = cutoff_dt.strftime("%Y-%m-%d") + "T00:00:00Z"
+        
+        pipeline = [
+            {"$match": {
+                "created_at": {"$gte": cutoff_str}
+            }},
+            {"$project": {
+                "day": {"$substr": ["$created_at", 0, 10]},
+                "misogyny_score": 1
+            }},
+            {"$group": {
+                "_id": "$day",
+                "avg_score": {"$avg": "$misogyny_score"},
+                "misogynous_count": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
+                "clean_count": {"$sum": {"$cond": [{"$lte": ["$misogyny_score", 0.5]}, 1, 0]}}
+            }},
+            {"$sort": {"_id": 1}}
+        ]
+        
+        results = list(components["mongo"].collection.aggregate(pipeline))
+        result_map = {r["_id"]: r for r in results}
+        
+        # Fill in gaps to ensure a continuous timeline
+        for i in range(179, -1, -1):
             day_dt = datetime.now() - timedelta(days=i)
             day_str = day_dt.strftime("%Y-%m-%d")
             labels.append(day_str)
             
-            day_start = day_str + "T00:00:00Z"
-            day_end = day_str + "T23:59:59Z"
-            
-            # Aggregate: average score, count of misogynous (>0.5), count of clean (<=0.5)
-            pipeline = [
-                {"$match": {
-                    "$or": [
-                        {"created_at": {"$gte": day_start, "$lte": day_end}},
-                        {"scraped_at": {"$gte": day_start, "$lte": day_end}}
-                    ]
-                }},
-                {"$group": {
-                    "_id": None,
-                    "avg_score": {"$avg": "$misogyny_score"},
-                    "misogynous_count": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
-                    "clean_count": {"$sum": {"$cond": [{"$lte": ["$misogyny_score", 0.5]}, 1, 0]}}
-                }}
-            ]
-            agg_result = list(components["mongo"].collection.aggregate(pipeline))
-            
-            if agg_result and agg_result[0]:
-                res = agg_result[0]
-                avg_val = (res.get("avg_score") or 0.0) * 100
-                percentage_data.append(round(avg_val, 2))
-                misogynous_counts.append(res.get("misogynous_count") or 0)
-                clean_counts.append(res.get("clean_count") or 0)
+            if day_str in result_map:
+                r = result_map[day_str]
+                avg_scores.append(round((r.get("avg_score") or 0.0) * 100, 2))
+                misogynous_counts.append(r.get("misogynous_count") or 0)
+                clean_counts.append(r.get("clean_count") or 0)
             else:
-                percentage_data.append(0.0)
+                avg_scores.append(0.0)
                 misogynous_counts.append(0)
                 clean_counts.append(0)
                 
         return jsonify({
             "labels": labels,
-            "percentage": percentage_data,
+            "percentage": avg_scores,
             "misogynous": misogynous_counts,
             "clean": clean_counts
         })
     except Exception as e:
         logger.error("history_stats_error", error=str(e))
+        return jsonify({"error": str(e)}), 500
+@app.route("/stats/risky-users", methods=["GET"])
+def risky_users():
+    """Identifies top 15 users with high misogyny scores."""
+    if not components["mongo"]:
+        return jsonify({"error": "MongoDB not available"}), 503
+    
+    try:
+        pipeline = [
+            {"$match": {"misogyny_score": {"$gt": 0.5}}},
+            {"$group": {
+                "_id": "$author_handle",
+                "total_misogynistic_posts": {"$sum": 1},
+                "avg_score": {"$avg": "$misogyny_score"},
+                "max_score": {"$max": "$misogyny_score"},
+                "author_did": {"$first": "$author_did"}
+            }},
+            {"$addFields": {
+                "risk_score": {"$multiply": ["$total_misogynistic_posts", "$avg_score"]}
+            }},
+            {"$sort": {"risk_score": -1}},
+            {"$limit": 15}
+        ]
+        
+        results = list(components["mongo"].collection.aggregate(pipeline))
+        return jsonify(results)
+    except Exception as e:
+        logger.error("risky_users_error", error=str(e))
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/user-posts/<handle>", methods=["GET"])
+def user_posts(handle):
+    """Fetches detailed misogynistic posts for a specific user."""
+    if not components["mongo"]:
+        return jsonify({"error": "MongoDB not available"}), 503
+    
+    try:
+        # Get posts
+        posts = list(components["mongo"].collection.find(
+            {"author_handle": handle, "misogyny_score": {"$gt": 0.5}},
+            {"text": 1, "created_at": 1, "misogyny_score": 1, "_id": 0}
+        ).sort("created_at", -1).limit(20))
+        
+        # Get user summary from all their posts (not just misogynistic)
+        stats_pipeline = [
+            {"$match": {"author_handle": handle}},
+            {"$group": {
+                "_id": "$author_handle",
+                "total_posts": {"$sum": 1},
+                "misogynous_posts": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
+                "avg_misogyny": {"$avg": "$misogyny_score"}
+            }}
+        ]
+        stats_list = list(components["mongo"].collection.aggregate(stats_pipeline))
+        summary = stats_list[0] if stats_list else {}
+        
+        return jsonify({
+            "handle": handle,
+            "posts": posts,
+            "summary": summary
+        })
+    except Exception as e:
+        logger.error("user_posts_error", handle=handle, error=str(e))
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

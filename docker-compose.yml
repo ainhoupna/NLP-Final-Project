@@ -20,6 +20,7 @@ services:
       - llm
     volumes:
       - ./models:/models
+      - ./flask_app:/app
     restart: always
     network_mode: "host"
 
@@ -42,10 +43,11 @@ services:
 
   mongo:
     image: mongo:latest
+    user: "1001:1001"
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
+      - /home/alumno/Desktop/datos/mongodb_data:/data/db
     network_mode: "host"
 
   mongo-express:
@@ -58,7 +60,6 @@ services:
     restart: always
 
 volumes:
-  mongodb_data:
   chroma_data:
 
 

@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import structlog
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -10,6 +10,17 @@ from keywords import MISOGYNY_SEED_QUERIES
 from ingestion.mongodb_client import MongoDBClient
 from ingestion.embedder import PostEmbedder
 from ingestion.ttl import purge_expired_posts_mongo
+
+def cleanup_old_posts(mongo: MongoDBClient, days: int = 180):
+    """Deletes posts older than 180 days."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    res = mongo.collection.delete_many({
+        "$and": [
+            {"created_at": {"$lt": cutoff}},
+            {"scraped_at": {"$lt": cutoff}}
+        ]
+    })
+    return res.deleted_count
 
 # Configurar logging
 structlog.configure(
@@ -46,6 +57,11 @@ def run_scrape_cycle() -> None:
     logger.info("scrape_cycle_start")
     
     try:
+        # Periodically remove posts older than 6 months
+        deleted = cleanup_old_posts(mongo, days=180)
+        if deleted > 0:
+            logger.info("retention_cleanup_performed", deleted_count=deleted)
+
         # 0. Asegurar infraestructura
         mongo.ensure_indices(MONGO_VECTOR_INDEX)
         
@@ -86,9 +102,8 @@ def run_scrape_cycle() -> None:
         
         logger.info("ingestion_complete", total=total_ingested)
         
-        # 5. Purga TTL (opcional en Mongo, pero implementamos lógica similar)
-        deleted = purge_expired_posts_mongo(mongo, TTL_HOURS)
-        logger.info("scrape_cycle_end", ingested=total_ingested, purged=deleted)
+        # 5. Long-term retention is already handled by cleanup_old_posts at the start of cycle
+        logger.info("scrape_cycle_end", ingested=total_ingested)
         
     except Exception as e:
         logger.error("scrape_cycle_failed", error=str(e))
