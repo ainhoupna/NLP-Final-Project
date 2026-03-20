@@ -22,6 +22,7 @@
         <div class="tabs-container">
             <button class="tab-button active" data-tab="tab-rag">RAG SEARCH</button>
             <button class="tab-button" data-tab="tab-monitor">MONITORING</button>
+            <button class="tab-button" data-tab="tab-risk">USER RISK</button>
         </div>
 
         <div id="tab-rag" class="tab-content active">
@@ -89,9 +90,64 @@
                     <span id="stat-last-sync" class="stat-value gray">Never</span>
                 </div>
             </div>
-        </section>
+
+            </section>
         </div> <!-- End of tab-monitor -->
+
+        <div id="tab-risk" class="tab-content">
+            <section id="risk-monitor" class="risk-section">
+                <div class="section-header">
+                    <h2>USER RISK MONITOR</h2>
+                    <p class="section-desc">Profiles with high frequency of misogynistic content (Top 15)</p>
+                </div>
+                <div class="table-container risk-table-container">
+                    <table class="risk-table premium-table">
+                        <thead>
+                            <tr>
+                                <th>Handle</th>
+                                <th>Misogynistic Posts</th>
+                                <th>Avg Score</th>
+                                <th>Risk Level</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="risk-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            </section>
+        </div> <!-- End of tab-risk -->
     </main>
+
+    <!-- Modal for User Details -->
+    <div id="user-modal" class="modal hidden">
+        <div class="modal-content premium-modal">
+            <div class="modal-header">
+                <h3 id="modal-title">User Details</h3>
+                <button id="close-modal" class="close-btn">&times;</button>
+            </div>
+            <div id="modal-stats" class="modal-stats">
+                <!-- Stats here -->
+            </div>
+            <div class="modal-body">
+                <h4>Recent Misogynistic Posts</h4>
+                <div class="table-container risk-table-container">
+                    <table class="premium-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Content</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-posts-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <footer class="site-footer">
         <div class="container">

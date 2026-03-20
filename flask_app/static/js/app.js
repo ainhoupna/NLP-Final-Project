@@ -154,6 +154,79 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // --- Risk Monitor Handling ---
+    const riskBody = document.getElementById('risk-body');
+    const userModal = document.getElementById('user-modal');
+    const userPostsBody = document.getElementById('user-posts-body');
+    const modalTitle = document.getElementById('modal-title');
+    const modalStats = document.getElementById('modal-stats');
+    const closeModal = document.getElementById('close-modal');
+
+    const fetchRiskyUsers = async () => {
+        try {
+            const response = await fetch('/stats/risky-users');
+            const users = await response.json();
+            
+            riskBody.innerHTML = '';
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+                const riskLevel = user.risk_score > 5 ? 'High' : (user.risk_score > 1 ? 'Moderate' : 'Low');
+                const riskClass = riskLevel.toLowerCase();
+                
+                tr.innerHTML = `
+                    <td class="clickable h-link" data-handle="${user._id}">@${user._id}</td>
+                    <td>${user.total_misogynistic_posts}</td>
+                    <td>${user.avg_score.toFixed(2)}</td>
+                    <td><span class="badge badge-${riskClass}">${riskLevel}</span></td>
+                    <td><button class="view-btn" data-handle="${user._id}">INVESTIGATE</button></td>
+                `;
+                riskBody.appendChild(tr);
+            });
+
+            // Add click listeners
+            document.querySelectorAll('.view-btn, .h-link').forEach(el => {
+                el.addEventListener('click', () => showUserDetails(el.getAttribute('data-handle')));
+            });
+
+        } catch (error) {
+            console.error('Error fetching risky users:', error);
+        }
+    };
+
+    const showUserDetails = async (handle) => {
+        try {
+            const response = await fetch(`/api/user-posts/${handle}`);
+            const data = await response.json();
+            
+            modalTitle.innerText = `Detailed Profile: @${handle}`;
+            modalStats.innerHTML = `
+                <div class="m-stat"><span>Total Posts:</span> ${data.summary.total_posts}</div>
+                <div class="m-stat"><span>Misogynistic:</span> ${data.summary.misogynous_posts}</div>
+                <div class="m-stat"><span>Avg Misogyny:</span> ${(data.summary.avg_misogyny * 100).toFixed(1)}%</div>
+            `;
+            
+            userPostsBody.innerHTML = '';
+            data.posts.forEach(post => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="date-cell">${new Date(post.created_at).toLocaleDateString()}</td>
+                    <td class="text-cell">${post.text}</td>
+                    <td><span class="score-pill">${(post.misogyny_score * 100).toFixed(0)}%</span></td>
+                `;
+                userPostsBody.appendChild(tr);
+            });
+            
+            userModal.classList.remove('hidden');
+        } catch (error) {
+            console.error('Error fetching user details:', error);
+        }
+    };
+
+    closeModal.addEventListener('click', () => userModal.classList.add('hidden'));
+    window.addEventListener('click', (e) => {
+        if (e.target === userModal) userModal.classList.add('hidden');
+    });
+
     // --- Stats Handling ---
     const fetchStats = async () => {
         try {
@@ -179,6 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentHistoryData = await histRes.json();
                 renderChart(currentHistoryData);
             }
+
+            // Also reload risky users
+            fetchRiskyUsers();
+
         } catch (error) {
             console.error('Error fetching stats:', error);
         }
