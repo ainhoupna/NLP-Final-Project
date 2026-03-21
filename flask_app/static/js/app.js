@@ -873,8 +873,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="text-cell">${post.text}</td>
                     <td><span class="badge ${scoreClass}">${scorePercent}%</span></td>
                     <td>
-                        <button class="view-btn drilldown-investigate" data-handle="${post.author_handle}">INVESTIGATE</button>
-                        <button class="view-btn drilldown-deep" data-handle="${post.author_handle}" style="background:#6f42c1; margin-left:4px;">DEEP ANALYSIS</button>
+                        <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                            <button class="view-btn invest-btn" data-handle="${post.author_handle}" style="width: 100%; text-align: center;">INVESTIGATE</button>
+                            <button class="view-btn drilldown-deep" data-handle="${post.author_handle}" style="background: #6f42c1; width: 100%; text-align: center;">DEEP ANALYSIS</button>
+                        </div>
                     </td>
                 `;
                 drilldownBody.appendChild(tr);

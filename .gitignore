@@ -30,3 +30,4 @@ chroma_data/
 .Trashes
 ehthumbs.db
 Thumbs.db
+models/best_model.pth
