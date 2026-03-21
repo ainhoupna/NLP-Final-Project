@@ -56,37 +56,53 @@ Bluesky AT Protocol API
 ```
 misogynai/
 ├── docker-compose.yml
-├── .env.example
+├── .env
+├── LICENSE
 ├── README.md
 │
 ├── scraper/
 │   ├── Dockerfile
-│   ├── scraper.py          # APScheduler + Bluesky AT Proto client
-│   ├── bluesky_client.py   # AT Protocol wrapper (firehose + search)
-│   └── requirements.txt
+│   ├── scraper.py              # APScheduler + Loop de scraping
+│   ├── bluesky_client.py       # Cliente AT Protocol (Firehose / feeds)
+│   ├── historical_backfill.py  # Script para volcar históricos a BD
+│   ├── keywords.py             # Diccionario de filtrado léxico
+│   ├── requirements.txt
+│   ├── ingestion/
+│   │   ├── embedder.py         # Generación de Embeddings
+│   │   ├── mongodb_client.py   # Conector oficial MongoDB
+│   │   └── ttl.py              # Purgado de 24h
+│   └── models/
+│       ├── classifier.py
+│       └── predictor.py
 │
 ├── flask_app/
 │   ├── Dockerfile
-│   ├── app.py              # REST API entry point
+│   ├── app.py                  # API REST + Controladores
 │   ├── requirements.txt
+│   ├── static/
+│   │   ├── css/style.css       # Estilos (Dashboard, Modales, Agent UI)
+│   │   └── js/app.js           # Lógica SSE, Gráficas y Renderizado
+│   ├── templates/
+│   │   └── index.html          # Panel de Control principal
 │   ├── ingestion/
-│   │   ├── mongodb_client.py
-│   │   ├── embedder.py     # Multimodal embedding logic
-│   │   └── ttl.py          # 24h purge job
+│   │   ├── embedder.py
+│   │   └── mongodb_client.py
 │   ├── retrieval/
-│   │   └── retriever.py    # ChromaDB query wrapper
+│   │   └── retriever.py        # Búsquedas semánticas (ChromaDB)
 │   └── pipeline/
-│       └── rag.py          # Prompt assembly + LLM call
+│       ├── rag.py              # Inferencia pregunta/respuesta
+│       └── agent.py            # Orquestador Multi-Agente (Llama 3)
 │
 ├── models/
-│   └── README.md           # Model download instructions
+│   ├── Meta-Llama-3-8B-Instruct.Q4_0.gguf    # Model LLM principal
+│   ├── Llama-3.2-3B-Instruct-Q4_K_M.gguf
+│   └── README.md
 │
 ├── eval/
-│   ├── eval_dataset.json   # Hand-annotated misogyny examples
-│   └── evaluate.py         # Hit Rate, MRR, Precision@k
+│   └── README.md               # Métricas de precisión @K
 │
-└── report/
-    └── report.pdf
+└── docs/
+    └── ARCHITECTURE.md         # Documentación técnica extendida
 ```
 
 ---
