@@ -6,7 +6,7 @@
 
 ## What this project does
 
-This system continuously scrapes the Bluesky Social network via its public AT Protocol API every 30 minutes, stores raw posts in MinIO, indexes them in ChromaDB using multimodal embeddings, and exposes a RAG-powered REST API that lets you retrieve misogynistic posts by semantic query.
+This system continuously scrapes the Bluesky Social network via its public AT Protocol API every 30 minutes, stores raw posts in **MongoDB**, indexes them in ChromaDB using multimodal embeddings, and exposes a RAG-powered REST API that lets you retrieve misogynistic posts by semantic query.
 
 Beyond simple querying, the application features a **Multi-Agent Profiling System** powered by Llama-3 that evaluates user risk in real-time. By dynamically fetching a user's recent posts and parsing their live AT Protocol follow-graph, the Agents can detect deep psychological patterns, classify genuine vs sarcastic misogyny, and measure the toxicity of a user's echo chamber. All of this is visualized via a comprehensive web dashboard.
 
@@ -21,7 +21,7 @@ Bluesky AT Protocol API
         |
         | (every 30 min, via APScheduler)
         v
-  [ Scraper Service ]  ──►  MinIO (raw posts as JSON)
+  [ Scraper Service ]  ──►  **MongoDB** (raw posts)
         |
         v
   [ Ingestion Pipeline ]
@@ -70,7 +70,7 @@ misogynai/
 │   ├── app.py              # REST API entry point
 │   ├── requirements.txt
 │   ├── ingestion/
-│   │   ├── minio_client.py
+│   │   ├── mongodb_client.py
 │   │   ├── embedder.py     # Multimodal embedding logic
 │   │   └── ttl.py          # 24h purge job
 │   ├── retrieval/
@@ -95,10 +95,10 @@ misogynai/
 
 | Service | Image | Port | Purpose |
 |---|---|---|---|
-| `scraper` | custom | — | Bluesky polling + MinIO ingestion |
+| `scraper` | custom | — | Bluesky polling + MongoDB ingestion |
 | `flask_app` | custom | 5000 | RAG API |
 | `llm` | `ghcr.io/ggerganov/llama.cpp:server` | 8080 | Local LLM inference |
-| `minio` | `minio/minio:latest` | 9000/9001 | Raw post object store |
+| `mongo` | `mongo:latest` | 27017 | Raw post database |
 | `chromadb` | `chromadb/chroma:latest` | 8001 | Vector search backend |
 
 ---
@@ -147,7 +147,7 @@ curl http://localhost:5000/api/risk-monitor
 
 ## Bluesky data model
 
-Each scraped post is stored in MinIO as a JSON document with this structure:
+Each scraped post is stored in **MongoDB** with this structure:
 
 ```json
 {
@@ -189,7 +189,7 @@ For image thumbnails (future): CLIP embeddings fused with text embeddings.
 
 ## TTL and data lifecycle
 
-- Every 30 minutes: scraper runs, new posts ingested into MinIO + ChromaDB.
+- Every 30 minutes: scraper runs, new posts ingested into **MongoDB** + ChromaDB.
 - On each ingestion cycle: posts with `scraped_at` older than 24 hours are deleted from both stores.
 - ChromaDB metadata field `scraped_at_ts` (Unix timestamp) is used for TTL filtering.
 
