@@ -212,7 +212,7 @@ The evaluation dataset (`eval/eval_dataset.json`) contains hand-annotated misogy
 - Misogyny labels in the evaluation dataset are manually assigned and may reflect annotator bias.
 - The current embedding model is text-only; image content analysis is a planned extension.
 - LLM inference on CPU (llama.cpp) is slow (~15–30 s/query); use a GPU instance for production.
-- No authentication on the Flask API (add in production).
+- No authentication on the Flask API (add in production from now).
 
 ---
 
