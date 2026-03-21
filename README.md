@@ -241,3 +241,5 @@ The evaluation dataset (`eval/eval_dataset.json`) contains hand-annotated misogy
 - [x] User Risk Leaderboard and Monitoring tabs.
 - [x] Live API Context enhancement: falling back to `getAuthorFeed` for thin profiles, and `getFollows` graph traversal for echo-chamber calculations.
 - [x] RAG querying with ChromaDB and MinIO TTL expirations.
+
+Authors: Karim Abu Shams, Ainhoa Del Rey & Iñigo Goikoetxea
