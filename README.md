@@ -1,5 +1,7 @@
 # MisogynAI — Bluesky Misogyny RAG Monitor
 
+[![Code Quality & Linting](https://github.com/ainhoupna/NLP-Final-Project/actions/workflows/lint.yml/badge.svg)](https://github.com/ainhoupna/NLP-Final-Project/actions/workflows/lint.yml)
+
 > Real-time retrieval-augmented system for detecting and analysing misogynistic content on Bluesky Social.
 
 ---
