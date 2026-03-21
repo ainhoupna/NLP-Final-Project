@@ -23,6 +23,7 @@
             <button class="tab-button active" data-tab="tab-rag">RAG SEARCH</button>
             <button class="tab-button" data-tab="tab-monitor">MONITORING</button>
             <button class="tab-button" data-tab="tab-risk">USER RISK</button>
+            <button class="tab-button" data-tab="tab-agent">AGENT ANALYSIS</button>
         </div>
 
         <div id="tab-rag" class="tab-content active">
@@ -65,29 +66,59 @@
             <section class="stats-section">
                 <div class="stats-header">
                 <h2>SYSTEM STATISTICS</h2>
-                <div class="chart-controls">
-                    <button id="view-percentage" class="control-button active">PERCENTAGE</button>
-                    <button id="view-volume" class="control-button">VOLUME</button>
+                
+                <div class="monitor-controls-wrapper">
+                    <div class="chart-controls">
+                        <button id="view-percentage" class="control-button active">PERCENTAGE</button>
+                        <button id="view-volume" class="control-button">VOLUME</button>
+                    </div>
+                    <div class="time-controls">
+                        <button id="time-48h" class="control-button time-btn">48H (HOURLY)</button>
+                        <button id="time-180d" class="control-button time-btn active">180D (DAILY)</button>
+                    </div>
+                    <button id="refresh-stats" class="text-button">REFRESH</button>
                 </div>
-                <button id="refresh-stats" class="text-button">REFRESH</button>
             </div>
             
             <div class="chart-container">
                 <canvas id="historyChart"></canvas>
             </div>
 
-            <div id="stats-grid" class="stats-grid">
+            <!-- Drill-down Table (Hidden by default) -->
+            <div id="time-drilldown-container" class="drilldown-container hidden" style="margin-top: 2rem;">
+                <div class="section-header" style="margin-bottom: 1rem;">
+                    <h2>POSTS FOR <span id="drilldown-time-label" style="color: #dc3545;">...</span></h2>
+                    <p class="section-desc">Click on a data point in the chart above to view flagged posts for that time period.</p>
+                </div>
+                <div class="table-container risk-table-container">
+                    <table class="risk-table premium-table">
+                        <thead>
+                            <tr>
+                                <th>Author</th>
+                                <th>Post Content</th>
+                                <th>Score</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="drilldown-body">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="stats-grid" class="stats-grid" style="margin-top: 2rem;">
                 <div class="stat-item">
                     <span class="stat-label">Monitored Posts</span>
                     <span id="stat-count" class="stat-value">0</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">LLM Status</span>
-                    <span id="stat-llm" class="stat-value gray">...</span>
+                    <span class="stat-label">Monitored Profiles</span>
+                    <span id="stat-profiles" class="stat-value">...</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Last Cycle</span>
-                    <span id="stat-last-sync" class="stat-value gray">Never</span>
+                    <span class="stat-label">Global Toxicity</span>
+                    <span id="stat-toxicity" class="stat-value">...</span>
                 </div>
             </div>
 
@@ -98,16 +129,21 @@
             <section id="risk-monitor" class="risk-section">
                 <div class="section-header">
                     <h2>USER RISK MONITOR</h2>
-                    <p class="section-desc">Profiles with high frequency of misogynistic content (Top 15)</p>
+                    <p class="section-desc">Profiles with high misogynistic content (Top 15)</p>
                 </div>
+                <div class="risk-mode-toggle">
+                    <button class="risk-mode-btn active" data-risk-mode="volume">📊 Volume Ranking</button>
+                    <button class="risk-mode-btn" data-risk-mode="diversity">🧬 Diversity Ranking</button>
+                </div>
+                <p class="risk-mode-desc" id="risk-mode-desc">Ranked by total misogynistic posts × average severity score. Includes repeated content.</p>
                 <div class="table-container risk-table-container">
                     <table class="risk-table premium-table">
                         <thead>
                             <tr>
                                 <th>Handle</th>
-                                <th>Misogynistic Posts</th>
+                                <th id="risk-col-count">Misogynistic Posts</th>
                                 <th>Avg Score</th>
-                                <th>Risk Level</th>
+                                <th id="risk-col-extra">Risk Level</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -119,6 +155,122 @@
             </section>
             </section>
         </div> <!-- End of tab-risk -->
+
+        <div id="tab-agent" class="tab-content">
+            <section class="search-section">
+                <div class="agent-header">
+                    <h2 class="section-title">AI AGENT ANALYSIS</h2>
+                    <p class="agent-subtitle">Deep profile analysis powered by LLaMA 3. The AI agent inspects a user's posts, patterns, and network to determine genuine misogynistic behavior.</p>
+                </div>
+                <div class="agent-input-group">
+                    <input type="text" id="agent-handle" placeholder="Enter Bluesky handle (e.g. user.bsky.social)" />
+                    <button id="agent-analyze-btn" class="agent-btn">ANALYZE PROFILE</button>
+                </div>
+                <div id="agent-loading" class="agent-loading hidden">
+                    <div class="agent-spinner"></div>
+                    <p>Agent is analyzing the profile... This may take a few minutes.</p>
+                </div>
+
+                <div id="agent-timeline-wrapper" class="hidden" style="margin-top: 1.5rem; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div class="timeline-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-muted);">Agent Execution Steps</h4>
+                        <button id="toggle-timeline-btn" class="agent-btn hidden" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; background: transparent; border: 1px solid var(--border-color); color: var(--text-color);">Hide Steps</button>
+                    </div>
+                    <ul id="agent-progress-list" class="agent-progress-list" style="margin-top: 0;"></ul>
+                </div>
+                <div id="agent-results" class="agent-results hidden">
+                    <!-- Verdict Card (always visible at top) -->
+                    <div class="agent-verdict-card" id="agent-verdict-card">
+                        <div class="verdict-badge" id="verdict-badge"></div>
+                        <div class="verdict-confidence">
+                            <span>Confidence:</span>
+                            <div class="confidence-bar"><div class="confidence-fill" id="confidence-fill"></div></div>
+                            <span id="confidence-value"></span>
+                        </div>
+                        <p class="verdict-summary" id="verdict-summary"></p>
+                        <p class="toxicity-ratio" id="toxicity-ratio"></p>
+                    </div>
+
+                    <!-- Inner Tabs Navigation -->
+                    <div class="agent-tabs">
+                        <button class="agent-tab-btn active" data-agent-tab="atab-overview">📊 Overview</button>
+                        <button class="agent-tab-btn" data-agent-tab="atab-stance">🧐 Stance Analysis</button>
+                        <button class="agent-tab-btn" data-agent-tab="atab-behavior">🧠 Behavioral Profile</button>
+                        <button class="agent-tab-btn" data-agent-tab="atab-deep">🌐 Deep Intelligence</button>
+                    </div>
+
+                    <!-- Tab 1: Overview (Categorization + Patterns) -->
+                    <div id="atab-overview" class="agent-tab-content active">
+                        <div class="agent-section">
+                            <h4>Misogyny Categorization</h4>
+                            <div id="agent-categorization" class="agent-categorization"></div>
+                        </div>
+                        <div class="agent-section">
+                            <h4>Identified Patterns</h4>
+                            <div id="agent-patterns" class="agent-patterns-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Stance Analysis (Flagged + False Positives) -->
+                    <div id="atab-stance" class="agent-tab-content">
+                        <div class="agent-section">
+                            <h4>Flagged Posts (with Stance Analysis)</h4>
+                            <div id="agent-flagged" class="agent-flagged-container"></div>
+                        </div>
+                        <div id="false-positives-section" class="agent-section hidden">
+                            <h4>⚠ Likely False Positives (Misclassified by BERT)</h4>
+                            <div id="agent-false-positives" class="agent-flagged-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Behavioral Profile (Temporal) -->
+                    <div id="atab-behavior" class="agent-tab-content">
+                        <div class="agent-section">
+                            <h4>📈 Temporal Trend</h4>
+                            <div class="temporal-chart-container">
+                                <canvas id="temporal-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="agent-section">
+                            <h4>🧠 AI Temporal Analysis</h4>
+                            <p id="agent-temporal" class="agent-text-block"></p>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Deep Intelligence (Network) -->
+                    <div id="atab-deep" class="agent-tab-content">
+                        <div class="agent-section">
+                            <h4>📊 Network Metrics</h4>
+                            <div class="network-stats-grid">
+                                <div class="net-stat-card">
+                                    <span class="net-stat-label">Echo Chamber</span>
+                                    <span class="net-stat-value" id="net-echo-pct">0%</span>
+                                    <span class="net-stat-desc">% of top contacts that are toxic</span>
+                                </div>
+                                <div class="net-stat-card">
+                                    <span class="net-stat-label">Reply Ratio</span>
+                                    <span class="net-stat-value" id="net-reply-ratio">0%</span>
+                                    <span class="net-stat-desc">% of posts starting with @mention</span>
+                                </div>
+                                <div class="net-stat-card">
+                                    <span class="net-stat-label">Toxic Post Rate</span>
+                                    <span class="net-stat-value" id="net-toxic-rate">0%</span>
+                                    <span class="net-stat-desc">Overall misogynistic content rate</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agent-section" id="top-contacts-section">
+                            <h4>👥 Top Contacts Interaction Map</h4>
+                            <div id="top-contacts-container" class="top-contacts-container"></div>
+                        </div>
+                        <div class="agent-section">
+                            <h4>🔗 AI Network & Echo Chamber Analysis</h4>
+                            <p id="agent-network" class="agent-text-block"></p>
+                        </div>
+                    </div>
+                </div>            </div>
+            </section>
+        </div> <!-- End of tab-agent -->
     </main>
 
     <!-- Modal for User Details -->

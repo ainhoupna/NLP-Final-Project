@@ -10,4 +10,6 @@ requests
 python-dotenv
 numpy
 structlog
+langchain
+langchain-openai
 

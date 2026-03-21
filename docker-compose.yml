@@ -33,7 +33,7 @@ services:
       - ./models:/models
     env_file: .env
     command: >
-      -m /models/${LLM_MODEL_FILENAME} -c 4096 -ngl 99 --host 0.0.0.0 --port 8080
+      -m /models/${LLM_MODEL_FILENAME} -c 16384 -ngl 99 --host 0.0.0.0 --port 8080
     restart: "no"
     network_mode: "host"
     deploy:

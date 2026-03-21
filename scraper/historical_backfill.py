@@ -57,8 +57,8 @@ def run_backfill(days_back: int = 180):
         target_day = target_dt.strftime("%Y-%m-%d")
         next_day = (target_dt + timedelta(days=1)).strftime("%Y-%m-%d")
         
-        start_date = f"{target_day}T00:00:00Z"
-        end_date = f"{next_day}T00:00:00Z"
+        start_date = f"{target_day}T00:00:00.000Z"
+        end_date = f"{next_day}T00:00:00.000Z"
         
         logger.info("backfilling_day_start", day=target_day, until=end_date, days_ago=i)
         
@@ -89,11 +89,11 @@ def run_backfill(days_back: int = 180):
                 
                 if not next_cursor: break
                 cursor = next_cursor
-                time.sleep(2) # Throttle between pages
+                time.sleep(0.5) # Throttle between pages
             
-            time.sleep(5) # Throttle between different queries
+            time.sleep(1) # Throttle between different queries
         
-        time.sleep(10) # Throttle between days
+        time.sleep(2) # Throttle between days
 
     logger.info("historical_backfill_completed_mongo")
 

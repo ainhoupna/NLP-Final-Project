@@ -40,7 +40,7 @@ class BlueskyClient:
         import time
         for attempt in range(retries):
             try:
-                # We use native since/until parameters provided by the search API
+                # Pass since/until as native API query parameters
                 params = {"q": query, "limit": limit}
                 if since:
                     params["since"] = since
@@ -66,6 +66,19 @@ class BlueskyClient:
                 return [], None
         
         return [], None
+
+    def get_author_recent_posts(self, target_handle: str, limit: int = 30) -> list[dict]:
+        """Fetches recent posts from a specific author's feed."""
+        try:
+            response = self.client.app.bsky.feed.get_author_feed(params={"actor": target_handle, "limit": limit})
+            # get_author_feed returns a list of FeedViewPost objects in response.feed
+            # Each feed view has a .post attribute (PostView)
+            normalized_posts = [normalize_post(feed_view.post) for feed_view in response.feed if hasattr(feed_view, 'post')]
+            logger.info("atproto_author_feed_success", target=target_handle, count=len(normalized_posts))
+            return normalized_posts
+        except Exception as e:
+            logger.error("atproto_author_feed_failed", target=target_handle, error=str(e))
+            return []
 
 def normalize_post(post_view) -> dict:
     """Convierte un objeto de la API de atproto al formato canónico del proyecto."""

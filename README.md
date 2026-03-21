@@ -8,9 +8,9 @@
 
 This system continuously scrapes the Bluesky Social network via its public AT Protocol API every 30 minutes, stores raw posts in MinIO, indexes them in ChromaDB using multimodal embeddings, and exposes a RAG-powered REST API that lets you retrieve misogynistic posts by semantic query.
 
-Posts older than 24 hours are automatically purged from both the vector store and the object store, keeping the index focused on the current state of the network.
+Beyond simple querying, the application features a **Multi-Agent Profiling System** powered by Llama-3 that evaluates user risk in real-time. By dynamically fetching a user's recent posts and parsing their live AT Protocol follow-graph, the Agents can detect deep psychological patterns, classify genuine vs sarcastic misogyny, and measure the toxicity of a user's echo chamber. All of this is visualized via a comprehensive web dashboard.
 
-The long-term goal is to attach a fine-tuned misogyny classifier and produce a rolling "misogyny index" for Bluesky, updated every 30 minutes.
+Posts older than 24 hours are automatically purged from both the vector store and the object store, keeping the index focused on the current state of the network.
 
 ---
 
@@ -30,18 +30,23 @@ Bluesky AT Protocol API
     - TTL enforcement (delete posts > 24h)
         |
         v
-  [ Flask RAG API ]
-    POST /query       ← semantic search for misogynistic posts
-    GET  /stats       ← misogyny index over time
-    GET  /health
+  [ Flask REST & Web App ]
+    POST /query                  ← semantic search for misogynistic posts
+    GET  /stats                  ← misogyny index over time
+    GET  /api/risk-monitor       ← user risk leaderboard
+    GET  /api/agent-analyze-stream ← SSE multi-agent profile analysis
         |
         v
-  [ LLM Service ]  (llama.cpp or vLLM, local, no external API)
-    - Grounded answer generation
-    - Optional: misogyny scoring per retrieved chunk
+  [ AI Multi-Agent Pipeline ]  (Llama-3 via llama.cpp)
+    - Agent 1: Stance Detection (Genuine vs Sarcastic/Denouncing)
+    - Agent 2: Psychological Profiling (Hostile, Benevolent, Target Harassment)
+    - Agent 3: Sociologist (Echo Chamber tracking via live AT Proto `getFollows` graph)
         |
         v
-  [ Frontend ]  (optional, Streamlit or static HTML)
+  [ Interactive Dashboard ]  (HTML/JS/Vanilla CSS)
+    - RAG Search Interface
+    - Risk Monitoring Leaderboards
+    - Real-time SSE Agent Execution UI
 ```
 
 ---
@@ -128,14 +133,14 @@ curl -X POST http://localhost:5000/query \
   -d '{"question": "posts insulting women in sport", "top_k": 5}'
 ```
 
-### Get misogyny index stats
+### Run Agent Analysis (SSE Stream)
 ```bash
-curl http://localhost:5000/stats
+curl "http://localhost:5000/api/agent-analyze-stream?handle=user.bsky.social"
 ```
 
-### Health check
+### Get Risk Leaderboard
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:5000/api/risk-monitor
 ```
 
 ---
@@ -211,10 +216,10 @@ The evaluation dataset (`eval/eval_dataset.json`) contains hand-annotated misogy
 
 ---
 
-## Roadmap
+## Completed Project Roadmap
 
-- [ ] Fine-tuned misogyny binary classifier (HuggingFace)
-- [ ] Rolling misogyny index chart in frontend
-- [ ] CLIP multimodal embeddings for image posts
-- [ ] Spanish-language optimised embedding model
-- [ ] Alerting when misogyny index exceeds threshold
+- [x] LLaMA-based Multi-Agent system for deep user profiling (Stance, Psychology, Sociology).
+- [x] Real-time Dashboard UI with SSE streams and dynamic data visualization (Charts.js).
+- [x] User Risk Leaderboard and Monitoring tabs.
+- [x] Live API Context enhancement: falling back to `getAuthorFeed` for thin profiles, and `getFollows` graph traversal for echo-chamber calculations.
+- [x] RAG querying with ChromaDB and MinIO TTL expirations.
