@@ -174,8 +174,8 @@ Each scraped post is stored in **MongoDB** with this structure:
   "author_did": "did:plc:xxx",
   "author_handle": "user.bsky.social",
   "text": "post content here",
-  "created_at": "2026-03-16T10:00:00Z",
-  "scraped_at": "2026-03-16T10:30:00Z",
+  "created_at": "2026-03-16T10:00:000Z",
+  "scraped_at": "2026-03-16T10:30:000Z",
   "images": [
     {
       "alt": "image alt text",
