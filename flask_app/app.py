@@ -191,7 +191,7 @@ def history_stats():
 
 @app.route("/stats/history-hourly", methods=["GET"])
 def history_stats_hourly():
-    """Returns time series data (percentage and volume) for the last 48 hours."""
+    """Returns time series data (percentage and volume) for the last 72 hours."""
     if not components["mongo"]:
         return jsonify({"error": "MongoDB not available"}), 503
     
@@ -201,8 +201,8 @@ def history_stats_hourly():
         misogynous_counts = []
         clean_counts = []
         
-        # Calculate cutoff (48 hours ago)
-        cutoff_dt = datetime.now() - timedelta(hours=47)
+        # Calculate cutoff (72 hours ago)
+        cutoff_dt = datetime.now() - timedelta(hours=71)
         cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:00:00Z")
         
         pipeline = [
@@ -226,7 +226,7 @@ def history_stats_hourly():
         result_map = {r["_id"]: r for r in results}
         
         # Fill in gaps to ensure a continuous timeline
-        for i in range(47, -1, -1):
+        for i in range(71, -1, -1):
             hour_dt = datetime.now() - timedelta(hours=i)
             # Match the substr format: YYYY-MM-DDTHH
             hour_str_match = hour_dt.strftime("%Y-%m-%dT%H")
@@ -262,30 +262,30 @@ def monitoring_posts_by_time():
         return jsonify({"error": "MongoDB not available"}), 503
     
     time_label = request.args.get("time_label")
-    mode = request.args.get("mode", "48h") # '48h' means hour, '180d' means day
+    mode = request.args.get("mode", "72h") # '72h' means hour, '180d' means day
     
     if not time_label:
         return jsonify({"error": "Missing time_label parameter"}), 400
         
     try:
-        if mode == "48h":
-            # time_label is like "14:00"
-            # We need to find the specific hour in the last 48h that matches this
-            # Because "14:00" might happen twice in 48h (yesterday and today),
-            # we check the last 48 hours for matching hours.
+        if mode == "72h":
+            # We need to find the specific hour in the last 72h that matches this
+            # Because "14:00" might happen three times in 72h,
+            # we check the last 72 hours for matching hours.
             now = datetime.now()
             target_hour_str = time_label.split(":")[0] # "14"
             
-            # Find the most recent date-time in the last 48h that matches the hour
-            match_regex = f"T{target_hour_str}:"
+            # Find the most recent date-time in the last 72h that matches the hour
+            found_dt_start = None
+            found_dt_end = None
             
-            # Since we just want the posts, let's use a regex on created_at for that hour,
-            # but constrained to the last 48 hours to be safe.
-            cutoff_dt = now - timedelta(hours=48)
+            # Walk backwards from today, up to 3 days (72h)
+            # but constrained to the last 72 hours to be safe.
+            cutoff_dt = now - timedelta(hours=72)
             cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:00:00Z")
             
             query = {
-                "created_at": {"$gte": cutoff_str, "$regex": match_regex},
+                "created_at": {"$gte": cutoff_str, "$regex": f"T{target_hour_str}:"},
                 "misogyny_score": {"$gt": 0.5}
             }
         else:

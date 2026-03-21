@@ -363,8 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stats Handling ---
     let currentHistoryData180d = null;
-    let currentHistoryData48h = null;
-    let currentTimeMode = '180d'; // '180d' or '48h'
+    let currentHistoryData72h = null;
+    let currentTimeMode = '180d'; // '180d' or '72h'
 
     const fetchStats = async () => {
         try {
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentHistoryData180d = await histRes.json();
             }
             if (histHourlyRes.ok) {
-                currentHistoryData48h = await histHourlyRes.json();
+                currentHistoryData72h = await histHourlyRes.json();
             }
 
             // Render active chart
@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateChartDisplay = () => {
-        const activeData = currentTimeMode === '180d' ? currentHistoryData180d : currentHistoryData48h;
+        const activeData = currentTimeMode === '180d' ? currentHistoryData180d : currentHistoryData72h;
         if (activeData) {
             renderChart(activeData);
         }
@@ -430,18 +430,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Time ranges
     const time180dBtn = document.getElementById('time-180d');
-    const time48hBtn = document.getElementById('time-48h');
+    const time72hBtn = document.getElementById('time-72h');
 
     time180dBtn.addEventListener('click', () => {
         currentTimeMode = '180d';
         time180dBtn.classList.add('active');
-        time48hBtn.classList.remove('active');
+        time72hBtn.classList.remove('active');
         updateChartDisplay();
     });
 
-    time48hBtn.addEventListener('click', () => {
-        currentTimeMode = '48h';
-        time48hBtn.classList.add('active');
+    time72hBtn.addEventListener('click', () => {
+        currentTimeMode = '72h';
+        time72hBtn.classList.add('active');
         time180dBtn.classList.remove('active');
         updateChartDisplay();
     });
