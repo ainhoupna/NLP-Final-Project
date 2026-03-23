@@ -196,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     pointHoverBorderWidth: 2
                 }]
             };
-            commonOptions.scales.y.max = 100;
         } else {
             // Gradients for volume view
             const gradientRed = ctx.createLinearGradient(0, 0, 0, ctx.canvas.clientHeight);
