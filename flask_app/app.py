@@ -202,7 +202,7 @@ def history_stats_hourly():
         clean_counts = []
         
         # Calculate cutoff (96 hours ago)
-        cutoff_dt = datetime.now() - timedelta(hours=95)
+        cutoff_dt = datetime.now() - timedelta(hours=96)
         cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:00:00Z")
         
         pipeline = [
