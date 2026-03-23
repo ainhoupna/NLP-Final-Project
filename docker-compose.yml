@@ -59,8 +59,8 @@ services:
     network_mode: "host"
     restart: always
 
-  sglang:
-    image: lmsysorg/sglang:latest
+  vllm:
+    image: vllm/vllm-openai:latest
     gpus: all
     ipc: host
     volumes:
@@ -68,12 +68,12 @@ services:
     ports:
       - "30000:30000"
     command: >
-      python3 -m sglang.launch_server
-      --model-path /models/Qwen3.5-27B-FP8
+      --model /models/Qwen3.5-27B-FP8
       --host 0.0.0.0
       --port 30000
-      --mem-fraction-static 0.75
-      --context-length 4096
+      --gpu-memory-utilization 0.75
+      --max-model-len 4096
+      --served-model-name Qwen/Qwen3.5-27B-FP8
     restart: "no"
     network_mode: "host"
 
