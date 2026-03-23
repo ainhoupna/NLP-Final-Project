@@ -201,8 +201,8 @@ def history_stats_hourly():
         misogynous_counts = []
         clean_counts = []
         
-        # Calculate cutoff (72 hours ago)
-        cutoff_dt = datetime.now() - timedelta(hours=71)
+        # Calculate cutoff (96 hours ago)
+        cutoff_dt = datetime.now() - timedelta(hours=95)
         cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:00:00Z")
         
         pipeline = [
@@ -225,8 +225,8 @@ def history_stats_hourly():
         results = list(components["mongo"].collection.aggregate(pipeline))
         result_map = {r["_id"]: r for r in results}
         
-        # Fill in gaps to ensure a continuous timeline
-        for i in range(71, -1, -1):
+        # Fill in gaps to ensure a continuous timeline, excluding the current hour
+        for i in range(96, 0, -1):
             hour_dt = datetime.now() - timedelta(hours=i)
             # Match the substr format: YYYY-MM-DDTHH
             hour_str_match = hour_dt.strftime("%Y-%m-%dT%H")
@@ -262,16 +262,16 @@ def monitoring_posts_by_time():
         return jsonify({"error": "MongoDB not available"}), 503
     
     time_label = request.args.get("time_label")
-    mode = request.args.get("mode", "72h") # '72h' means hour, '180d' means day
+    mode = request.args.get("mode", "96h") # '96h' means hour, '180d' means day
     
     if not time_label:
         return jsonify({"error": "Missing time_label parameter"}), 400
         
     try:
-        if mode == "72h":
-            # We need to find the specific hour in the last 72h that matches this
-            # Because "14:00" might happen three times in 72h,
-            # we check the last 72 hours for matching hours.
+        if mode == "96h":
+            # We need to find the specific hour in the last 96h that matches this
+            # Because "14:00" might happen four times in 96h,
+            # we check the last 96 hours for matching hours.
             now = datetime.now()
             target_hour_str = time_label.split(":")[0] # "14"
             
@@ -279,9 +279,9 @@ def monitoring_posts_by_time():
             found_dt_start = None
             found_dt_end = None
             
-            # Walk backwards from today, up to 3 days (72h)
-            # but constrained to the last 72 hours to be safe.
-            cutoff_dt = now - timedelta(hours=72)
+            # Walk backwards from today, up to 4 days (96h)
+            # but constrained to the last 96 hours to be safe.
+            cutoff_dt = now - timedelta(hours=96)
             cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:00:00Z")
             
             query = {
