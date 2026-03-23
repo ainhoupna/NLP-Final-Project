@@ -70,7 +70,7 @@ def evaluate_posts(db):
         
         try:
             chat_response = client.chat.completions.create(
-                model="Qwen/Qwen3.5-27B-FP8", # SGLang infers the actual model name based on its startup params, but we pass the identifier used. Alternatively, use 'default'.
+                model="Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive", 
                 messages=messages,
                 max_tokens=10,
                 temperature=0.1,

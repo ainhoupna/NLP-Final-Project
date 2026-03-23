@@ -59,21 +59,15 @@ services:
     network_mode: "host"
     restart: always
 
-  vllm:
-    image: vllm/vllm-openai:latest
+  llm_qwen:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
     gpus: all
-    ipc: host
+    privileged: true
     volumes:
       - ./models:/models
-    ports:
-      - "30000:30000"
     command: >
-      --model /models/Qwen3.5-27B-FP8
-      --host 0.0.0.0
-      --port 30000
-      --gpu-memory-utilization 0.75
-      --max-model-len 4096
-      --served-model-name Qwen/Qwen3.5-27B-FP8
+      -m /models/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K.gguf 
+      -c 8192 -ngl 99 --host 0.0.0.0 --port 30000
     restart: "no"
     network_mode: "host"
 
