@@ -48,7 +48,7 @@ class MongoDBClient:
         """Performs a vector search. Fallback to manual similarity since standard Mongo lacks Vector Index."""
         # Note: In a production environment with many docs, you'd use a real vector DB or Atlas.
         # Here we fetch the latest 500 posts and rank them.
-        cursor = self.collection.find({"embedding": {"$exists": True}}).sort("created_at", -1).limit(500)
+        cursor = self.collection.find({"embedding": {"$exists": True}}).sort("created_at", -1).limit(200)
         
         results = []
         import numpy as np

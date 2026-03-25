@@ -1109,6 +1109,7 @@ body {
 .stance-denouncing { background: #d4edda; color: #28a745; }
 .stance-quoting { background: #d6e9f8; color: #0069d9; }
 .stance-sarcastic { background: #e8daef; color: #6f42c1; }
+.stance-neutral { background: #e9ecef; color: #6c757d; }
 
 .category-tag {
     display: inline-block;

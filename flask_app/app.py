@@ -110,9 +110,12 @@ def stats():
         mongo_stats = components["mongo"].get_stats()
         total_posts = mongo_stats["count"]
         
-        # Calculate toxicity rate
-        toxic_posts = components["mongo"].collection.count_documents({"misogyny_score": {"$gt": 0.5}})
-        toxicity_rate = round((toxic_posts / total_posts) * 100, 1) if total_posts > 0 else 0
+        # Calculate toxicity rates
+        toxic_posts_bert = components["mongo"].collection.count_documents({"misogyny_score": {"$gt": 0.5}})
+        toxicity_rate_bert = round((toxic_posts_bert / total_posts) * 100, 1) if total_posts > 0 else 0
+        
+        toxic_posts_qwen = components["mongo"].collection.count_documents({"qwen_misogyny": True})
+        toxicity_rate_qwen = round((toxic_posts_qwen / total_posts) * 100, 1) if total_posts > 0 else 0
         
         # Calculate unique profiles monitored
         profiles = len(components["mongo"].collection.distinct("author_handle"))
@@ -121,7 +124,8 @@ def stats():
             "status": "online",
             "indexed_posts": total_posts,
             "profiles_monitored": profiles,
-            "toxicity_rate": f"{toxicity_rate}%"
+            "toxicity_rate": f"{toxicity_rate_qwen}%",
+            "bert_toxicity_rate": f"{toxicity_rate_bert}%"
         })
     except Exception as e:
         logger.error("stats_handler_error", error=str(e))
@@ -136,7 +140,9 @@ def history_stats():
     try:
         labels = []
         avg_scores = []
+        qwen_avg_scores = []
         misogynous_counts = []
+        qwen_misogynous_counts = []
         clean_counts = []
         
         # Calculate cutoff (180 days ago)
@@ -149,12 +155,15 @@ def history_stats():
             }},
             {"$project": {
                 "day": {"$substr": ["$created_at", 0, 10]},
-                "misogyny_score": 1
+                "misogyny_score": 1,
+                "qwen_misogyny": 1
             }},
             {"$group": {
                 "_id": "$day",
                 "avg_score": {"$avg": "$misogyny_score"},
+                "qwen_avg_score": {"$avg": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}},
                 "misogynous_count": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
+                "qwen_misogynous_count": {"$sum": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}},
                 "clean_count": {"$sum": {"$cond": [{"$lte": ["$misogyny_score", 0.5]}, 1, 0]}}
             }},
             {"$sort": {"_id": 1}}
@@ -172,17 +181,23 @@ def history_stats():
             if day_str in result_map:
                 r = result_map[day_str]
                 avg_scores.append(round((r.get("avg_score") or 0.0) * 100, 2))
+                qwen_avg_scores.append(round((r.get("qwen_avg_score") or 0.0) * 100, 2))
                 misogynous_counts.append(r.get("misogynous_count") or 0)
+                qwen_misogynous_counts.append(r.get("qwen_misogynous_count") or 0)
                 clean_counts.append(r.get("clean_count") or 0)
             else:
                 avg_scores.append(0.0)
+                qwen_avg_scores.append(0.0)
                 misogynous_counts.append(0)
+                qwen_misogynous_counts.append(0)
                 clean_counts.append(0)
                 
         return jsonify({
             "labels": labels,
             "percentage": avg_scores,
+            "qwen_percentage": qwen_avg_scores,
             "misogynous": misogynous_counts,
+            "qwen_misogynous": qwen_misogynous_counts,
             "clean": clean_counts
         })
     except Exception as e:
@@ -198,7 +213,9 @@ def history_stats_hourly():
     try:
         labels = []
         avg_scores = []
+        qwen_avg_scores = []
         misogynous_counts = []
+        qwen_misogynous_counts = []
         clean_counts = []
         
         # Calculate cutoff (96 hours ago)
@@ -211,12 +228,15 @@ def history_stats_hourly():
             }},
             {"$project": {
                 "hour": {"$substr": ["$created_at", 0, 13]}, # "YYYY-MM-DDTHH"
-                "misogyny_score": 1
+                "misogyny_score": 1,
+                "qwen_misogyny": 1
             }},
             {"$group": {
                 "_id": "$hour",
                 "avg_score": {"$avg": "$misogyny_score"},
+                "qwen_avg_score": {"$avg": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}},
                 "misogynous_count": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
+                "qwen_misogynous_count": {"$sum": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}},
                 "clean_count": {"$sum": {"$cond": [{"$lte": ["$misogyny_score", 0.5]}, 1, 0]}}
             }},
             {"$sort": {"_id": 1}}
@@ -238,17 +258,23 @@ def history_stats_hourly():
             if hour_str_match in result_map:
                 r = result_map[hour_str_match]
                 avg_scores.append(round((r.get("avg_score") or 0.0) * 100, 2))
+                qwen_avg_scores.append(round((r.get("qwen_avg_score") or 0.0) * 100, 2))
                 misogynous_counts.append(r.get("misogynous_count") or 0)
+                qwen_misogynous_counts.append(r.get("qwen_misogynous_count") or 0)
                 clean_counts.append(r.get("clean_count") or 0)
             else:
                 avg_scores.append(0.0)
+                qwen_avg_scores.append(0.0)
                 misogynous_counts.append(0)
+                qwen_misogynous_counts.append(0)
                 clean_counts.append(0)
                 
         return jsonify({
             "labels": labels,
             "percentage": avg_scores,
+            "qwen_percentage": qwen_avg_scores,
             "misogynous": misogynous_counts,
+            "qwen_misogynous": qwen_misogynous_counts,
             "clean": clean_counts
         })
     except Exception as e:
@@ -286,13 +312,13 @@ def monitoring_posts_by_time():
             
             query = {
                 "created_at": {"$gte": cutoff_str, "$regex": f"T{target_hour_str}:"},
-                "misogyny_score": {"$gt": 0.5}
+                "qwen_misogyny": True
             }
         else:
             # time_label is like "2026-03-21"
             query = {
                 "created_at": {"$regex": f"^{time_label}"},
-                "misogyny_score": {"$gt": 0.5}
+                "qwen_misogyny": True
             }
             
         posts = list(components["mongo"].collection.find(
@@ -400,18 +426,18 @@ def risky_users():
     
     try:
         pipeline = [
-            {"$match": {"misogyny_score": {"$gt": 0.5}}},
+            {"$match": {"qwen_misogyny": True}},
             {"$group": {
                 "_id": "$author_handle",
                 "total_misogynistic_posts": {"$sum": 1},
-                "avg_score": {"$avg": "$misogyny_score"},
+                "avg_score": {"$avg": "$misogyny_score"}, # We still track the BERT score for nuance
                 "max_score": {"$max": "$misogyny_score"},
                 "author_did": {"$first": "$author_did"}
             }},
             {"$addFields": {
-                "risk_score": {"$multiply": ["$total_misogynistic_posts", "$avg_score"]}
+                "risk_score": {"$multiply": ["$total_misogynistic_posts", 1.0]} # Uniform risk factor per Qwen post
             }},
-            {"$sort": {"risk_score": -1}},
+            {"$sort": {"total_misogynistic_posts": -1}}, # Rank primarily by volume of Qwen-confirmed posts
             {"$limit": 15}
         ]
         
@@ -430,7 +456,7 @@ def risky_users_diverse():
     
     try:
         pipeline = [
-            {"$match": {"misogyny_score": {"$gt": 0.5}}},
+            {"$match": {"qwen_misogyny": True}},
             {"$group": {
                 "_id": "$author_handle",
                 "total_misogynistic_posts": {"$sum": 1},
@@ -475,7 +501,7 @@ def user_posts(handle):
     try:
         # Get posts
         posts = list(components["mongo"].collection.find(
-            {"author_handle": handle, "misogyny_score": {"$gt": 0.5}},
+            {"author_handle": handle, "qwen_misogyny": True},
             {"text": 1, "created_at": 1, "misogyny_score": 1, "_id": 0}
         ).sort("created_at", -1).limit(20))
         
@@ -485,7 +511,7 @@ def user_posts(handle):
             {"$group": {
                 "_id": "$author_handle",
                 "total_posts": {"$sum": 1},
-                "misogynous_posts": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}},
+                "misogynous_posts": {"$sum": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}},
                 "avg_misogyny": {"$avg": "$misogyny_score"}
             }}
         ]

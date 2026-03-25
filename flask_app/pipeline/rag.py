@@ -41,11 +41,12 @@ def build_prompt(question: str, posts: list[dict]) -> list[dict]:
     ]
 
 def call_llm(messages: list[dict], llm_url: str, max_tokens: int = 1000) -> str:
-    """Llama al endpoint del LLM (llama-server)."""
+    """Llama al endpoint del LLM (Qwen server)."""
     try:
-        # llama.cpp server expone /v1/chat/completions (OpenAI compat)
+        # El servidor (SGLang/vLLM/llama.cpp) expone /v1/chat/completions (OpenAI compat)
         endpoint = f"{llm_url}/v1/chat/completions"
         payload = {
+            "model": "Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive",
             "messages": messages,
             "max_tokens": max_tokens,
             "temperature": 0.2, # Baja para mayor fidelidad a los datos

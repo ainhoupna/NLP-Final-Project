@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import requests
 import structlog
 from datetime import datetime
 from collections import defaultdict
@@ -29,7 +30,7 @@ def _get_profile_stats(handle, mongo_collection):
         {"$group": {
             "_id": "$author_handle",
             "total": {"$sum": 1},
-            "misog": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}}
+            "misog": {"$sum": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}}
         }}
     ]
     results = list(mongo_collection.aggregate(pipeline))
@@ -39,15 +40,18 @@ def _get_profile_stats(handle, mongo_collection):
     return {"total": t, "misog": m, "rate": round(m / t * 100, 1) if t > 0 else 0}
 
 def _get_posts(handle, mongo_collection):
-    posts = list(mongo_collection.find(
+    # Prioritize BERT-flagged posts first, then newest
+    all_posts = list(mongo_collection.find(
         {"author_handle": handle},
-        {"text": 1, "created_at": 1, "misogyny_score": 1, "_id": 0}
-    ).sort("misogyny_score", -1).limit(20))
+        {"text": 1, "created_at": 1, "bert_misogyny": 1, "misogyny_score": 1, "_id": 0}
+    ).sort([("bert_misogyny", -1), ("created_at", -1)]).limit(15))
+    
     formatted = []
-    for p in posts:
+    for p in all_posts:
         formatted.append({
             "text": p.get("text", "")[:400],
-            "score": round(float(p.get("misogyny_score", 0)), 3),
+            "score": round(float(p.get("misogyny_score", 0)), 3) if p.get("misogyny_score") is not None else 0,
+            "qwen": bool(p.get("qwen_misogyny", False)),
             "date": p.get("created_at", "")[:10]
         })
     return formatted
@@ -82,12 +86,12 @@ def _get_interactions(handle, mongo_collection, live_posts=None, live_follows=No
         stats = list(mongo_collection.aggregate([
             {"$match": {"author_handle": mh}},
             {"$group": {"_id": "$author_handle", "t": {"$sum": 1},
-                        "m": {"$sum": {"$cond": [{"$gt": ["$misogyny_score", 0.5]}, 1, 0]}}}}
+                        "m": {"$sum": {"$cond": [{"$eq": ["$qwen_misogyny", True]}, 1, 0]}}}}
         ]))
         if stats:
             db_n += 1
             r = stats[0]["m"] / stats[0]["t"] * 100 if stats[0]["t"] > 0 else 0
-            if r > 30:
+            if r > 0.1: # If they have ANY Qwen-confirmed misogyny, it's a toxic contact
                 toxic_n += 1
             interactions.append({"handle": mh, "rate": round(r,1)})
             
@@ -112,7 +116,7 @@ def _get_temporal(handle, mongo_collection):
             dt = datetime.strptime(p["created_at"][:10], "%Y-%m-%d")
             wk = f"{dt.isocalendar()[0]}-W{dt.isocalendar()[1]:02d}"
             weeks[wk]["t"] += 1
-            if float(p.get("misogyny_score", 0)) > 0.5:
+            if p.get("qwen_misogyny") is True:
                 weeks[wk]["m"] += 1
         except Exception:
             pass
@@ -132,24 +136,30 @@ PROMPT_AGENT_1 = PromptTemplate(
 Analyze the following posts by a Bluesky user. The goal is to filter FALSE POSITIVES from the BERT model.
 You must determine the user's STANCE regarding misogyny in each post.
 Possible stances:
-- PROMOTING (supports misogyny)
+- PROMOTING (supports misogyny or uses degrading language toward women/individuals)
 - DENOUNCING (denounces misogyny, e.g., "Society is unfair to women" or "I hate sexism")
 - QUOTING (quoting someone else to expose them)
 - SARCASTIC (sarcasm mocking misogynists)
+
+CRITICAL RULE FOR SPANISH:
+- Terms like 'puta', 'zorra', 'guarra' when used as insults or to describe behavior are ALMOST ALWAYS PROMOTING. 
+- Exception: 'puta madre' or 'hijo de puta' as intensifiers among friends (NEUTRAL).
+- BUT 'Hora zorra' is EXPLICITLY PROMOTING (misogynistic slang).
 
 You MUST return ONLY a valid JSON object with the exact following structure:
 {{
   "analyzed_posts": [
     {{
-      "post_id": 1,
-      "stance": "PROMOTING" | "DENOUNCING" | "QUOTING" | "SARCASTIC",
-      "reason": "Brief explanation of why",
-      "is_genuine_misogyny": true or false (true ONLY if PROMOTING)
+      "post_id": 0,
+      "stance": "PROMOTING" | "DENOUNCING" | "QUOTING" | "SARCASTIC" | "NEUTRAL",
+      "reason": "Brief explanation of why (include if it's a known Spanish slur)",
+      "is_genuine_misogyny": true or false
     }}
   ]
 }}
+NO PREAMBLE. NO COMMONSENSE EXPLANATIONS. START IMMEDIATELY WITH {{.
 
-Posts to analyze:
+Posts to analyze (separated by ### ITEM P{idx} ###):
 {posts_text}""",
     input_variables=["posts_text"]
 )
@@ -189,9 +199,9 @@ PROMPT_AGENT_3 = PromptTemplate(
 Analyze this user's network metrics and temporal behavior to write a DEEP and COMPREHENSIVE sociological analysis.
 
 Available data:
-- Stats: {stats}
-- Network Analysis: {network}
-- Timeline (Last weeks): {temporal}
+- Global Stats: {stats_text}
+- Network Context: {network_text}
+- Timeline (Last weeks): {temporal_text}
 
 Mandatory rules:
 1. In "interactions_analysis", write 2-3 extensive paragraphs explaining WHAT their Echo Chamber PCT and Reply Ratio mean. Deeply explain if they do "Dogpiling" (excessive replying to toxic environments) or not. Analyze the psychological and social implications of their interactions. Use the REAL NUMBERS provided.
@@ -206,29 +216,42 @@ You MUST return ONLY a valid JSON object with the exact following structure:
   "summary": "comprehensive summary here",
   "interactions_analysis": "deep analysis of interactions here",
   "temporal_analysis": "deep temporal analysis here"
-}}""",
-    input_variables=["stats", "network", "temporal"]
+}}
+NO INTERNAL REASONING. NO PREAMBLE. NO <THOUGHTS>. RETURN ONLY THE JSON.
+""",
+    input_variables=["stats_text", "network_text", "temporal_text"]
 )
 
 # ── Safe JSON Extractor ──────────────────────────────────────────────
 
 def _extract_json(text):
+    if not text: return {}
     text = text.strip()
-    if text.startswith("```json"):
-        text = text[7:]
-    elif text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
+    # Remove obvious preambles like "Thinking Process:" or "Analysis:"
+    text = re.sub(r'^(Thinking Process|Analysis|Thought|Reasoning):.*\n*', '', text, flags=re.IGNORECASE | re.MULTILINE)
+    
+    # Remove markdown code blocks
+    text = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'```\s*', '', text, flags=re.IGNORECASE)
+    text = text.replace('```', '')
+    
+    # Try finding the largest JSON-like block
     try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError:
-        json_match = re.search(r'\{[\s\S]*\}', text)
-        if json_match:
-            try:
-                return json.loads(json_match.group())
-            except Exception:
-                pass
+        # First try finding a block starting with {
+        start_idx = text.find('{')
+        end_idx = text.rfind('}')
+        if start_idx != -1 and end_idx != -1:
+            cand = text[start_idx:end_idx+1]
+            # Replace smart quotes
+            cand = cand.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+            return json.loads(cand)
+    except Exception:
+        pass
+        
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
     return {}
 
 def _fetch_live_posts_bsky(handle: str, limit: int = 30) -> list:
@@ -257,6 +280,38 @@ def _fetch_live_posts_bsky(handle: str, limit: int = 30) -> list:
         logger.warning("live_bsky_fetch_error", handle=handle, error=str(e))
     return []
 
+def _call_llm(prompt, llm_url, max_tokens=2000):
+    url = f"{llm_url}/v1/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "model": "gpt-3.5-turbo",
+        "messages": [
+            {"role": "system", "content": "You are a specialized AI agent for misogyny analysis. ALWAYS return VALID JSON. NO PREAMBLE. NO EXPLANATIONS."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1,
+        "max_tokens": max_tokens,
+        "stream": False
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=90)
+        if response.status_code == 200:
+            data = response.json()
+            message = data['choices'][0]['message']
+            content = message.get('content', '')
+            reasoning = message.get('reasoning_content', '')
+            
+            # Use reasoning if content is empty (fallback for some Qwen/DeepSeek variants)
+            if not content.strip() and reasoning.strip():
+                return reasoning
+            return content
+        else:
+            logger.error("llm_api_error", status=response.status_code, text=response.text)
+            return ""
+    except Exception as e:
+        logger.error("llm_request_failed", error=str(e))
+        return ""
+
 def _fetch_live_network_bsky(handle, limit=50):
     """Fetches the accounts that the user is actively following from the public BlueSky API."""
     import requests
@@ -279,11 +334,13 @@ def run_agent_analysis_stream(handle, mongo_collection, llm_url):
     
     # Initialize LLM
     llm = ChatOpenAI(
-        base_url=f"{llm_url}/v1", 
-        api_key="sk-no-key", 
-        model="llama3", 
+        openai_api_base=f"{llm_url}/v1", 
+        openai_api_key="sk-no-key", 
+        model_name="gpt-3.5-turbo", # Use a standard name that works with LLM servers
         temperature=0.1,
-        max_tokens=4000
+        max_tokens=2000,
+        request_timeout=60, # Large timeout for long Qwen generations
+        streaming=False # Disable streaming for stable invoke
     )
     
     from langchain_core.output_parsers import StrOutputParser
@@ -329,34 +386,47 @@ def run_agent_analysis_stream(handle, mongo_collection, llm_url):
         # Step 1: Agent 1 (Stance Detection)
         yield {"type": "tool_start", "tool": "Agent 1: Analyst", "message": "Context & Stance Analyzer processing posts (Deep Analysis)...", "emoji": "🧐"}
         
-        posts_text_block = "\\n".join([f"[Post {i}] {p['text']}" for i, p in enumerate(posts_data[:30])])
-        chain1 = PROMPT_AGENT_1 | llm | str_parser
+        # Clearer delimitation for the Analyst
+        posts_text_block = "\n".join([f"### ITEM P{i} ###\n{p['text']}\n" for i, p in enumerate(posts_data[:15])])
+        # Escaping curly braces for .format() if content has them
+        posts_text_block = posts_text_block.replace("{", "[").replace("}", "]")
+        
+        # Adding anti-thought instruction
+        posts_text_block += "\n\nNO PREAMBLE. NO INTERNAL MONOLOGUE. START YOUR JSON RESPOND WITH '{'."
         
         try:
-            raw_output = chain1.invoke({"posts_text": posts_text_block})
+            full_prompt = PROMPT_AGENT_1.format(posts_text=posts_text_block)
+            logger.info("agent1_calling_llm", prompt_len=len(full_prompt))
+            raw_output = _call_llm(full_prompt, llm_url, max_tokens=4000)
+            logger.info("agent1_raw_output", raw=raw_output[:500] + "...")
             agent1_results = _extract_json(raw_output)
+            logger.info("agent1_parsed", count=len(agent1_results.get("analyzed_posts", [])) if agent1_results else 0)
         except Exception as e:
-            logger.error("agent1_parse_failed", error=str(e))
-            agent1_results = {"analyzed_posts": [{"post_id": i, "stance": "PROMOTING", "is_genuine_misogyny": True, "reason": "Classified by heuristic after LLM token limit/failure"} for i, p in enumerate(posts_data[:30])]}
-        
-        if not isinstance(agent1_results, dict):
+            logger.error("agent1_failed", error=str(e))
             agent1_results = {}
         
         analyzed_posts = agent1_results.get("analyzed_posts", [])
-        if not isinstance(analyzed_posts, list):
-            analyzed_posts = [analyzed_posts] if isinstance(analyzed_posts, dict) else []
-            
         # Map back to real text
         mapped_posts = []
         for ap in analyzed_posts:
             if not isinstance(ap, dict): continue
-            idx = ap.get("post_id")
-            if idx is not None and isinstance(idx, int) and idx < len(posts_data[:30]):
+            # Handle both int and string IDs
+            try:
+                idx = int(ap.get("post_id")) if ap.get("post_id") is not None else None
+            except (ValueError, TypeError):
+                idx = None
+                
+            if idx is not None and 0 <= idx < len(posts_data[:15]):
                 ap["text"] = posts_data[idx]["text"]
                 mapped_posts.append(ap)
                 
         genuine_posts = [p for p in mapped_posts if p.get("is_genuine_misogyny", False) is True or str(p.get("is_genuine_misogyny")).lower() == "true"]
-        false_positives = [p for p in mapped_posts if p.get("is_genuine_misogyny", False) is False or str(p.get("is_genuine_misogyny")).lower() == "false"]
+        false_positives = [p for p in mapped_posts if (p.get("is_genuine_misogyny", False) is False or str(p.get("is_genuine_misogyny")).lower() == "false") and p.get("stance") != "PROMOTING"]
+        
+        # If we have no genuine posts, include a few benign ones so the user sees analysis work
+        benign_posts = [p for p in mapped_posts if p not in genuine_posts and p not in false_positives]
+        if not genuine_posts and not false_positives and mapped_posts:
+            benign_posts = mapped_posts[:5]
         
         yield {"type": "tool_done", "tool": "Agent 1: Analyst", "message": "Context analysis finished.", "emoji": "🧐", "detail": f"{len(genuine_posts)} legitimately toxic posts, {len(false_positives)} false positives."}
 
@@ -365,11 +435,14 @@ def run_agent_analysis_stream(handle, mongo_collection, llm_url):
         
         if genuine_posts:
             genuine_text_block = "\\n".join([f"- {p.get('text', '')}" for p in genuine_posts])
+            # Escape braces for .format()
+            genuine_text_block = genuine_text_block.replace("{", "{{").replace("}", "}}")
             chain2 = PROMPT_AGENT_2 | llm | str_parser
             try:
-                raw_output2 = chain2.invoke({"genuine_posts": genuine_text_block})
+                full_prompt2 = PROMPT_AGENT_2.format(genuine_posts=genuine_text_block)
+                raw_output2 = _call_llm(full_prompt2, llm_url, max_tokens=2000)
                 agent2_results = _extract_json(raw_output2)
-                if not agent2_results or "categorization" not in agent2_results:
+                if not agent2_results or ("categorization" not in agent2_results and "patterns" not in agent2_results):
                     raise ValueError("Agent 2 returned invalid or empty JSON")
             except Exception as e:
                 logger.error("agent2_parse_failed", error=str(e))
@@ -399,26 +472,42 @@ def run_agent_analysis_stream(handle, mongo_collection, llm_url):
         else:
             stats["rate"] = 0
 
-        chain3 = PROMPT_AGENT_3 | llm | str_parser
         try:
-            raw_output3 = chain3.invoke({
-                "stats": json.dumps(stats),
-                "network": json.dumps(interactions),
-                "temporal": json.dumps(temporal)
-            })
-            agent3_results = _extract_json(raw_output3)
-        except Exception as e:
-            logger.error("agent3_parse_failed", error=str(e))
-            agent3_results = {
-                "verdict": "MODERATE RISK" if stats["rate"] > 10 else "INCONCLUSIVE",
-                "confidence": 0.5,
-                "summary": f"User with a toxic post rate of {stats['rate']}%.",
-                "interactions_analysis": f"The user has an echo chamber of {interactions['echo_chamber_toxic_pct']}%.",
-                "temporal_analysis": f"Activity measured in the last weeks with {len(temporal)} weeks of data."
-            }
+            stats_text = f"Total: {stats.get('total', 0)} posts, Misogynistic: {stats.get('misog', 0)}, Rate: {stats.get('rate', 0)}%"
+            net_data = interactions
+            network_text = f"Reply Ratio: {net_data.get('reply_ratio_pct', 0)}%, Echo Chamber Toxic: {net_data.get('echo_chamber_toxic_pct', 0)}%. Top contacts: " + ", ".join([f"@{c['handle']} ({c['rate']}%)" for c in net_data.get('top_contacts', [])[:5]])
+            temporal_text = " -> ".join([f"{w['week']}: {w['rate']}%" for w in temporal])
             
+            full_prompt3 = PROMPT_AGENT_3.format(
+                stats_text=stats_text,
+                network_text=network_text,
+                temporal_text=temporal_text
+            )
+            logger.info("agent3_full_prompt", length=len(full_prompt3))
+            # Drastically increase tokens since Agent 3 needs room for paragraphs AND reasoning
+            raw_output3 = _call_llm(full_prompt3, llm_url, max_tokens=6000)
+            agent3_results = _extract_json(raw_output3)
+            
+            # Additional check: if JSON was valid but empty or missing keys, force fallback
+            if not agent3_results or "summary" not in agent3_results:
+                raise ValueError("Agent 3 returned valid JSON but missing summary key")
+
+        except Exception as e:
+            logger.error("agent3_failed", error=str(e))
+            agent3_results = {
+                "verdict": "MODERATE RISK" if stats.get("rate", 0) > 10 else "INCONCLUSIVE",
+                "confidence": 0.5,
+                "summary": f"Based on {stats.get('total', 0)} posts, the user shows a toxic rate of {stats.get('rate', 0)}%. No sustained pattern of genuine misogyny detected beyond isolated incidents.",
+                "interactions_analysis": f"The user has an echo chamber toxicity of {interactions.get('echo_chamber_toxic_pct', 0)}% and a reply ratio of {interactions.get('reply_ratio_pct', 0)}%.",
+                "temporal_analysis": f"Behavior is consistent with the temporal data spanning {len(temporal)} weeks."
+            }
+        
+        # Final safety guarantee
         if not isinstance(agent3_results, dict):
             agent3_results = {}
+        for k in ["summary", "interactions_analysis", "temporal_analysis"]:
+            if k not in agent3_results or not agent3_results[k]:
+                agent3_results[k] = "No data available for this analysis component."
         
         yield {"type": "tool_done", "tool": "Agent 3: Sociologist", "message": "Deep sociological evaluation finished", "emoji": "👥", "detail": "Metrics interpreted"}
 
@@ -445,19 +534,24 @@ def run_agent_analysis_stream(handle, mongo_collection, llm_url):
             "stats": stats
         }
         
-        for p in genuine_posts:
+        # Combine all analyses for the UI to show "analyzed phrases"
+        for p in mapped_posts:
+            # Determine if it's a genuine one or not
+            is_genuine = p.get("is_genuine_misogyny", False) is True or str(p.get("is_genuine_misogyny")).lower() == "true"
             final_result["flagged_posts"].append({
                 "text": p.get("text", ""),
-                "reason": p.get("reason", "Marked as genuine misogyny by stance analysis"),
-                "stance": p.get("stance", "PROMOTING")
+                "reason": p.get("reason", "Analyzed post"),
+                "stance": p.get("stance", "NEUTRAL"),
+                "is_genuine": is_genuine
             })
             
-        for p in false_positives:
-            final_result["false_positives"].append({
-                "text": p.get("text", "")[:150],
-                "reason": p.get("reason", "Underlying analysis determined another stance (Denouncing/Sarcastic)")
-            })
+            if not is_genuine and p.get("stance") != "PROMOTING":
+                final_result["false_positives"].append({
+                    "text": p.get("text", "")[:150],
+                    "reason": p.get("reason", "Analyzed as non-misogynistic")
+                })
 
+        logger.info("final_report_assembled", flagged_count=len(final_result["flagged_posts"]))
         yield {"type": "tool_done", "tool": "parsing", "message": "Report generated successfully.", "emoji": "📋"}
         yield {"type": "result", "data": final_result}
 

@@ -19,8 +19,9 @@ class PostRetriever:
         try:
             logger.info("retrieving_posts_mongo", query=query, top_k=top_k)
             
-            # 1. Generar embedding de la query
-            query_vector = self.embedder.embed(query)
+            # 1. Generar embedding de la query (alineado con formato de indexación)
+            formatted_query = f"[POST TEXT] {query}"
+            query_vector = self.embedder.embed(formatted_query)
             
             # 2. Consultar MongoDB usando Vector Search
             results = self.mongo.vector_search(

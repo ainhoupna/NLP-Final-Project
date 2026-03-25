@@ -1,0 +1,17 @@
+nohup: ignoring input
+2026-03-24 16:01:38 [info     ] connecting_mongodb             uri='mongodb://localhost:27017/?directConnection=true'
+2026-03-24 16:01:38 [info     ] evaluation_started             unprocessed_posts=1474
+2026-03-24 16:01:54 [info     ] evaluation_progress            processed=50 total=1474
+2026-03-24 16:02:08 [info     ] evaluation_progress            processed=100 total=1474
+2026-03-24 16:02:20 [info     ] evaluation_progress            processed=150 total=1474
+2026-03-24 16:02:30 [info     ] evaluation_progress            processed=200 total=1474
+2026-03-24 16:02:42 [info     ] evaluation_progress            processed=250 total=1474
+2026-03-24 16:02:58 [info     ] evaluation_progress            processed=300 total=1474
+2026-03-24 16:03:10 [info     ] evaluation_progress            processed=350 total=1474
+2026-03-24 16:03:20 [info     ] evaluation_progress            processed=400 total=1474
+2026-03-24 16:03:31 [info     ] evaluation_progress            processed=450 total=1474
+2026-03-24 16:03:40 [info     ] evaluation_progress            processed=500 total=1474
+2026-03-24 16:03:54 [info     ] evaluation_progress            processed=550 total=1474
+2026-03-24 16:04:10 [info     ] evaluation_progress            processed=600 total=1474
+2026-03-24 16:04:24 [info     ] evaluation_progress            processed=650 total=1474
+2026-03-24 16:04:38 [info     ] evaluation_finished            errors=0 processed=695

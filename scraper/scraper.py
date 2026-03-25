@@ -10,6 +10,7 @@ from keywords import MISOGYNY_SEED_QUERIES
 from ingestion.mongodb_client import MongoDBClient
 from ingestion.embedder import PostEmbedder
 from ingestion.ttl import purge_expired_posts_mongo
+from qwen_evaluator import evaluate_posts
 
 def cleanup_old_posts(mongo: MongoDBClient, days: int = 180):
     """Deletes posts older than 180 days."""
@@ -104,6 +105,11 @@ def run_scrape_cycle() -> None:
         
         # 5. Long-term retention is already handled by cleanup_old_posts at the start of cycle
         logger.info("scrape_cycle_end", ingested=total_ingested)
+        
+        # 6. Evaluate new posts with Qwen (Self-contained)
+        logger.info("starting_qwen_evaluation")
+        evaluate_posts(mongo.db)
+        logger.info("qwen_evaluation_done")
         
     except Exception as e:
         logger.error("scrape_cycle_failed", error=str(e))

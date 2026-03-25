@@ -96,7 +96,6 @@
                             <tr>
                                 <th>Author</th>
                                 <th>Post Content</th>
-                                <th>Score</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -117,7 +116,7 @@
                     <span id="stat-profiles" class="stat-value">...</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Global Toxicity</span>
+                    <span class="stat-label">Model Toxicity (Qwen)</span>
                     <span id="stat-toxicity" class="stat-value">...</span>
                 </div>
             </div>
@@ -142,7 +141,6 @@
                             <tr>
                                 <th>Handle</th>
                                 <th id="risk-col-count">Misogynistic Posts</th>
-                                <th>Avg Score</th>
                                 <th id="risk-col-extra">Risk Level</th>
                                 <th>Action</th>
                             </tr>
@@ -160,7 +158,7 @@
             <section class="search-section">
                 <div class="agent-header">
                     <h2 class="section-title">AI AGENT ANALYSIS</h2>
-                    <p class="agent-subtitle">Deep profile analysis powered by LLaMA 3. The AI agent inspects a user's posts, patterns, and network to determine genuine misogynistic behavior.</p>
+                    <p class="agent-subtitle">Deep profile analysis powered by Qwen 2.5/3.5. The AI agent inspects a user's posts, patterns, and network to determine genuine misogynistic behavior.</p>
                 </div>
                 <div class="agent-input-group">
                     <input type="text" id="agent-handle" placeholder="Enter Bluesky handle (e.g. user.bsky.social)" />
@@ -291,7 +289,6 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Content</th>
-                                <th>Score</th>
                             </tr>
                         </thead>
                         <tbody id="user-posts-body"></tbody>

@@ -181,20 +181,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             chartData = {
                 labels: data.labels,
-                datasets: [{
-                    label: '% Real Misogyny (BERT)',
-                    data: data.percentage,
-                    borderColor: '#1a1a1a',
-                    backgroundColor: gradient,
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBackgroundColor: '#1a1a1a',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2
-                }]
+                datasets: [
+                    {
+                        label: 'Qwen Misogyny (%)',
+                        data: data.qwen_percentage,
+                        borderColor: '#6f42c1',
+                        backgroundColor: 'rgba(111, 66, 193, 0.05)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#6f42c1',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2
+                    }
+                ]
             };
         } else {
             // Gradients for volume view
@@ -211,15 +213,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [
                     {
                         label: 'Misogynistic Posts',
-                        data: data.misogynous,
-                        borderColor: '#dc3545',
-                        backgroundColor: gradientRed,
+                        data: data.qwen_misogynous,
+                        borderColor: '#6f42c1',
+                        backgroundColor: 'rgba(111, 66, 193, 0.1)',
                         borderWidth: 2,
                         fill: true,
                         tension: 0.35,
                         pointRadius: 0,
                         pointHoverRadius: 5,
-                        pointHoverBackgroundColor: '#dc3545',
+                        pointHoverBackgroundColor: '#6f42c1',
                         pointHoverBorderColor: '#fff',
                         pointHoverBorderWidth: 2
                     },
@@ -287,7 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     tr.innerHTML = `
                         <td class="clickable h-link" data-handle="${user._id}">@${user._id}</td>
                         <td>${user.unique_count || 0} <span style="color:#aaa;font-size:0.8em">/ ${user.total_misogynistic_posts}</span></td>
-                        <td>${user.avg_score.toFixed(2)}</td>
                         <td><span style="color:${divColor};font-weight:700;">${divRatio}%</span></td>
                         <td><button class="view-btn" data-handle="${user._id}">INVESTIGATE</button></td>
                     `;
@@ -297,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     tr.innerHTML = `
                         <td class="clickable h-link" data-handle="${user._id}">@${user._id}</td>
                         <td>${user.total_misogynistic_posts}</td>
-                        <td>${user.avg_score.toFixed(2)}</td>
                         <td><span class="badge badge-${riskClass}">${riskLevel}</span></td>
                         <td><button class="view-btn" data-handle="${user._id}">INVESTIGATE</button></td>
                     `;
@@ -335,7 +335,6 @@ document.addEventListener('DOMContentLoaded', () => {
             modalStats.innerHTML = `
                 <div class="m-stat"><span>Total Posts:</span> ${data.summary.total_posts}</div>
                 <div class="m-stat"><span>Misogynistic:</span> ${data.summary.misogynous_posts}</div>
-                <div class="m-stat"><span>Avg Misogyny:</span> ${(data.summary.avg_misogyny * 100).toFixed(1)}%</div>
             `;
             
             userPostsBody.innerHTML = '';
@@ -344,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.innerHTML = `
                     <td class="date-cell">${new Date(post.created_at).toLocaleDateString()}</td>
                     <td class="text-cell">${post.text}</td>
-                    <td><span class="score-pill">${(post.misogyny_score * 100).toFixed(0)}%</span></td>
                 `;
                 userPostsBody.appendChild(tr);
             });
@@ -381,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await statsRes.json();
                 statCount.innerText = data.indexed_posts || 0;
                 statProfiles.innerText = data.profiles_monitored || 0;
-                statToxicity.innerText = data.toxicity_rate || "0%";
+                statToxicity.innerText = `${data.toxicity_rate}`;
             }
             
             if (histRes.ok) {
@@ -660,7 +658,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     'PROMOTING': 'stance-promoting',
                     'DENOUNCING': 'stance-denouncing',
                     'QUOTING': 'stance-quoting',
-                    'SARCASTIC': 'stance-sarcastic'
+                    'SARCASTIC': 'stance-sarcastic',
+                    'NEUTRAL': 'stance-neutral'
                 }[fp.stance] || 'stance-promoting';
                 const cardEl = document.createElement('div');
                 cardEl.className = 'flagged-post-card';

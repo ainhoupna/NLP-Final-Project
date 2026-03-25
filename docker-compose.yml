@@ -17,7 +17,7 @@ services:
     env_file: .env
     depends_on:
       - mongo
-      - llm
+      - llm_qwen
     volumes:
       - ./models:/models
       - ./flask_app:/app
@@ -25,21 +25,21 @@ services:
     network_mode: "host"
 
   # ── Third-party services ─────────────────────────────────────────
-  llm:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    gpus: all
-    privileged: true
-    volumes:
-      - ./models:/models
-    env_file: .env
-    command: >
-      -m /models/${LLM_MODEL_FILENAME} -c 16384 -ngl 99 --host 0.0.0.0 --port 8080
-    restart: "no"
-    network_mode: "host"
-    deploy:
-      resources:
-        limits:
-          memory: 8g
+#  llm:
+#    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+#    gpus: all
+#    privileged: true
+#    volumes:
+#      - ./models:/models
+#    env_file: .env
+#    command: >
+#      -m /models/${LLM_MODEL_FILENAME} -c 16384 -ngl 99 --host 0.0.0.0 --port 8080
+#    restart: "no"
+#    network_mode: "host"
+#    deploy:
+#      resources:
+#        limits:
+#          memory: 8g
 
   mongo:
     image: mongo:latest
