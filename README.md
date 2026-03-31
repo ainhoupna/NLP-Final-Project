@@ -206,7 +206,7 @@ For image thumbnails (future): CLIP embeddings fused with text embeddings.
 
 ## TTL and data lifecycle
 
-- Every 30 minutes: scraper runs, new posts ingested into **MongoDB** + ChromaDB.
+- Every 30 minutes: scraper runs, new posts ingested into **MongoDB**.
 - On each ingestion cycle: posts with `scraped_at` older than 180 days are deleted from both stores.
 - ChromaDB metadata field `scraped_at_ts` (Unix timestamp) is used for TTL filtering.
 
@@ -239,6 +239,5 @@ The evaluation dataset (`eval/eval_dataset.json`) contains hand-annotated misogy
 - [x] Real-time Dashboard UI with SSE streams and dynamic data visualization (Charts.js).
 - [x] User Risk Leaderboard and Monitoring tabs.
 - [x] Live API Context enhancement: falling back to `getAuthorFeed` for thin profiles, and `getFollows` graph traversal for echo-chamber calculations.
-- [x] RAG querying with ChromaDB and MinIO TTL expirations.
 
 Authors: Karim Abu Shams, Ainhoa Del Rey & Iñigo Goikoetxea
