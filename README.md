@@ -8,7 +8,7 @@
 
 ## What this project does
 
-This system continuously scrapes the Bluesky Social network via its public AT Protocol API every 30 minutes, stores raw posts in **MongoDB**, indexes them in ChromaDB using multimodal embeddings, and exposes a RAG-powered REST API that lets you retrieve misogynistic posts by semantic query.
+This system continuously scrapes the Bluesky Social network via its public AT Protocol API every 30 minutes, stores raw posts in **MongoDB**, indexes them in multimodal embeddings, and exposes a RAG-powered REST API that lets you retrieve misogynistic posts by semantic query.
 
 Beyond simple querying, the application features a **Multi-Agent Profiling System** powered by Llama-3 that evaluates user risk in real-time. By dynamically fetching a user's recent posts and parsing their live AT Protocol follow-graph, the Agents can detect deep psychological patterns, classify genuine vs sarcastic misogyny, and measure the toxicity of a user's echo chamber. All of this is visualized via a comprehensive web dashboard.
 
