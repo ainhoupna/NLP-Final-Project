@@ -29,7 +29,7 @@ Bluesky AT Protocol API
   [ Ingestion Pipeline ]
     - Multimodal embedding (text + image alt-text)
     - ChromaDB indexing
-    - TTL enforcement (delete posts > 24h)
+    - TTL enforcement (delete posts > 180 days)
         |
         v
   [ Flask REST & Web App ]
