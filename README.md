@@ -12,7 +12,7 @@ This system continuously scrapes the Bluesky Social network via its public AT Pr
 
 Beyond simple querying, the application features a **Multi-Agent Profiling System** powered by Llama-3 that evaluates user risk in real-time. By dynamically fetching a user's recent posts and parsing their live AT Protocol follow-graph, the Agents can detect deep psychological patterns, classify genuine vs sarcastic misogyny, and measure the toxicity of a user's echo chamber. All of this is visualized via a comprehensive web dashboard.
 
-Posts older than 24 hours are automatically purged from both the vector store and the object store, keeping the index focused on the current state of the network.
+Posts older than 180 days are automatically purged from both the vector store and the object store, keeping the index focused on the current state of the network.
 
 ---
 
