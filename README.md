@@ -117,7 +117,6 @@ misogynai/
 | `flask_app` | custom | 5000 | RAG API |
 | `llm` | `ghcr.io/ggerganov/llama.cpp:server` | 8080 | Local LLM inference |
 | `mongo` | `mongo:latest` | 27017 | Raw post database |
-| `chromadb` | `chromadb/chroma:latest` | 8001 | Vector search backend |
 
 ---
 
