@@ -207,7 +207,7 @@ For image thumbnails (future): CLIP embeddings fused with text embeddings.
 ## TTL and data lifecycle
 
 - Every 30 minutes: scraper runs, new posts ingested into **MongoDB** + ChromaDB.
-- On each ingestion cycle: posts with `scraped_at` older than 24 hours are deleted from both stores.
+- On each ingestion cycle: posts with `scraped_at` older than 180 days are deleted from both stores.
 - ChromaDB metadata field `scraped_at_ts` (Unix timestamp) is used for TTL filtering.
 
 ---
